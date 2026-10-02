@@ -62,3 +62,59 @@ LEFT JOIN raw.product_category AS f ON f.category_id = c.parent_id;    -- famili
 --       CAST(strftime(fecha, '%Y%m%d') AS INTEGER)
 --   * Si algo puede venir vacío (ej. NPS anónimos, sin cliente), podés agregar
 --     una fila "Desconocido" con clave -1 y usar COALESCE(clave, -1) en los hechos.
+
+CREATE TABLE dim_channel (
+    channel_id INTEGER PRIMARY KEY,
+    channel_name VARCHAR
+);
+
+INSERT INTO dim_channel
+SELECT 
+    channel_id,
+    name AS channel_name
+FROM raw.channel;
+
+
+CREATE TABLE dim_province (
+    province_id INTEGER PRIMARY KEY,
+    name VARCHAR,
+    code VARCHAR
+);
+
+INSERT INTO dim_province
+SELECT 
+    province_id,
+    name AS province_name,
+    code
+FROM raw.province;
+
+CREATE TABLE dim_store(
+    store_id INTEGER PRIMARY KEY,
+    name VARCHAR,
+    address_id INTEGER
+);
+
+INSERT INTO dim_store
+SELECT
+    store_id,
+    name as store_name,
+    address_id
+FROM raw.store;
+
+CREATE TABLE dim_customer(
+    customer_id INTEGER PRIMARY KEY,
+    email VARCHAR,
+    full_name VARCHAR,
+    status VARCHAR,
+    created_at TIMESTAMP
+);
+
+INSERT INTO dim_customer
+SELECT
+    customer_id,
+    email,
+    CONCAT(first_name, ' ', last_name) as full_name,
+    status,
+    created_at
+FROM raw.customer;
+

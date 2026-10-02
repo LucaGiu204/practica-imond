@@ -26,3 +26,83 @@
 
 
 -- TU TURNO: creá acá las tablas de hechos.
+
+-- ==========================================
+-- HECHOS: VENTAS
+-- ==========================================
+
+CREATE TABLE fact_sales (
+    order_item_id BIGINT PRIMARY KEY,
+    order_id INTEGER,
+    product_id INTEGER,
+    customer_id INTEGER,
+    store_id INTEGER,
+    channel_id INTEGER,
+    order_date TIMESTAMP,
+    quantity INTEGER,
+    unit_price DECIMAL(12,2),
+    discount_amount DECIMAL(12,2),
+    line_total DECIMAL(12,2)
+);
+
+INSERT INTO fact_sales
+SELECT 
+    i.order_item_id,
+    i.order_id,
+    i.product_id,
+    o.customer_id,
+    o.store_id,
+    o.channel_id,
+    o.order_date,
+    i.quantity,
+    i.unit_price,
+    i.discount_amount,
+    i.line_total
+FROM raw.sales_order_item i
+JOIN raw.sales_order o ON i.order_id = o.order_id
+WHERE o.status IN ('PAID', 'FULFILLED');
+
+-- ==========================================
+-- HECHOS: SESIONES WEB (Usuarios Activos)
+-- ==========================================
+CREATE TABLE fact_web_session (
+    session_id BIGINT PRIMARY KEY,
+    customer_id INTEGER,
+    started_at TIMESTAMP,
+    ended_at TIMESTAMP,
+    source VARCHAR,
+    device VARCHAR
+);
+
+INSERT INTO fact_web_session
+SELECT 
+    session_id,
+    customer_id,
+    started_at,
+    ended_at,
+    source,
+    device
+FROM raw.web_session;
+
+-- ==========================================
+-- HECHOS: RESPUESTAS NPS
+-- ==========================================
+
+CREATE TABLE fact_nps_response (
+    nps_id BIGINT PRIMARY KEY,
+    customer_id INTEGER,
+    channel_id INTEGER,
+    score INTEGER,
+    comment VARCHAR,
+    responded_at TIMESTAMP
+);
+
+INSERT INTO fact_nps_response
+SELECT 
+    nps_id,
+    customer_id,
+    channel_id,
+    score,
+    comment,
+    responded_at
+FROM raw.nps_response;
