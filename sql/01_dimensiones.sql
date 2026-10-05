@@ -125,7 +125,8 @@ CREATE TABLE dim_date (
     month INTEGER,
     month_name VARCHAR,
     day INTEGER,
-    day_name VARCHAR
+    day_name VARCHAR,
+    year_month VARCHAR
 );
 
 INSERT INTO dim_date
@@ -136,7 +137,8 @@ SELECT
     month(fecha),
     monthname(fecha),
     day(fecha),
-    dayname(fecha)
+    dayname(fecha),
+    strftime(fecha, '%Y-%m')
 FROM (
     SELECT CAST(range AS DATE) AS fecha
     FROM range(
