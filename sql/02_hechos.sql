@@ -47,6 +47,7 @@ CREATE TABLE fact_sales (
     line_total DECIMAL(12,2)
 );
 
+INSERT INTO fact_sales
 SELECT 
     i.order_item_id,
     i.order_id,
@@ -69,6 +70,7 @@ WHERE o.status IN ('PAID', 'FULFILLED');
 -- ==========================================
 -- HECHOS: SESIONES WEB (Usuarios Activos)
 -- ==========================================
+
 CREATE TABLE fact_web_session (
     session_id BIGINT PRIMARY KEY,
     customer_id INTEGER,
