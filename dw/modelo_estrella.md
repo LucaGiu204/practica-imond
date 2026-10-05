@@ -23,6 +23,7 @@ erDiagram
         VARCHAR month_name
         INTEGER day
         VARCHAR day_name
+        VARCHAR year_month
     }
     dim_product {
         INTEGER product_key PK
