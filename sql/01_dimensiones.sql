@@ -118,4 +118,32 @@ SELECT
     created_at
 FROM raw.customer;
 
+CREATE TABLE dim_date (
+    date_id INTEGER PRIMARY KEY,
+    date DATE,
+    year INTEGER,
+    month INTEGER,
+    month_name VARCHAR,
+    day INTEGER,
+    day_name VARCHAR
+);
+
+INSERT INTO dim_date
+SELECT
+    CAST(strftime(fecha, '%Y%m%d') AS INTEGER) AS date_id,
+    fecha,
+    year(fecha),
+    month(fecha),
+    monthname(fecha),
+    day(fecha),
+    dayname(fecha)
+FROM (
+    SELECT CAST(range AS DATE) AS fecha
+    FROM range(
+        DATE '2024-01-01',
+        DATE '2025-10-01',
+        INTERVAL 1 DAY
+    )
+);
+
 

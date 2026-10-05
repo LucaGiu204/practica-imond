@@ -40,13 +40,13 @@ CREATE TABLE fact_sales (
     channel_id INTEGER,
     province_id INTEGER,
     order_date TIMESTAMP,
+    sale_date DATE,
     quantity INTEGER,
     unit_price DECIMAL(12,2),
     discount_amount DECIMAL(12,2),
     line_total DECIMAL(12,2)
 );
 
-INSERT INTO fact_sales
 SELECT 
     i.order_item_id,
     i.order_id,
@@ -56,13 +56,14 @@ SELECT
     o.channel_id,
     a.province_id, 
     o.order_date,
+    CAST(o.order_date AS DATE),
     i.quantity,
     i.unit_price,
     i.discount_amount,
     i.line_total
 FROM raw.sales_order_item i
 JOIN raw.sales_order o ON i.order_id = o.order_id
-LEFT JOIN raw.address a ON o.shipping_address_id = a.address_id -- Puente para la provincia
+LEFT JOIN raw.address a ON o.shipping_address_id = a.address_id
 WHERE o.status IN ('PAID', 'FULFILLED');
 
 -- ==========================================
@@ -72,6 +73,7 @@ CREATE TABLE fact_web_session (
     session_id BIGINT PRIMARY KEY,
     customer_id INTEGER,
     started_at TIMESTAMP,
+    session_date DATE,
     ended_at TIMESTAMP,
     source VARCHAR,
     device VARCHAR
@@ -82,6 +84,7 @@ SELECT
     session_id,
     customer_id,
     started_at,
+    CAST(started_at AS DATE),
     ended_at,
     source,
     device
@@ -97,7 +100,8 @@ CREATE TABLE fact_nps_response (
     channel_id INTEGER,
     score INTEGER,
     comment VARCHAR,
-    responded_at TIMESTAMP
+    responded_at TIMESTAMP,
+    response_date DATE
 );
 
 INSERT INTO fact_nps_response
@@ -107,5 +111,6 @@ SELECT
     channel_id,
     score,
     comment,
-    responded_at
+    responded_at,
+    CAST(responded_at AS DATE)
 FROM raw.nps_response;

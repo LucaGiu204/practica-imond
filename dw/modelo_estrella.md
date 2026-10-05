@@ -15,6 +15,15 @@ erDiagram
         VARCHAR status
         TIMESTAMP created_at
     }
+    dim_date {
+        INTEGER date_id PK
+        DATE date
+        INTEGER year
+        INTEGER month
+        VARCHAR month_name
+        INTEGER day
+        VARCHAR day_name
+    }
     dim_product {
         INTEGER product_key PK
         INTEGER product_id
@@ -41,6 +50,7 @@ erDiagram
         INTEGER score
         VARCHAR comment
         TIMESTAMP responded_at
+        DATE response_date
     }
     fact_sales {
         BIGINT order_item_id PK
@@ -51,6 +61,7 @@ erDiagram
         INTEGER channel_id
         INTEGER province_id
         TIMESTAMP order_date
+        DATE sale_date
         INTEGER quantity
         DECIMAL unit_price
         DECIMAL discount_amount
@@ -60,6 +71,7 @@ erDiagram
         BIGINT session_id PK
         INTEGER customer_id
         TIMESTAMP started_at
+        DATE session_date
         TIMESTAMP ended_at
         VARCHAR source
         VARCHAR device
