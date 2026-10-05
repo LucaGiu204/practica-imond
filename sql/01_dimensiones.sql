@@ -118,3 +118,4 @@ SELECT
     created_at
 FROM raw.customer;
 
+

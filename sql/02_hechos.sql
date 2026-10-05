@@ -38,6 +38,7 @@ CREATE TABLE fact_sales (
     customer_id INTEGER,
     store_id INTEGER,
     channel_id INTEGER,
+    province_id INTEGER,
     order_date TIMESTAMP,
     quantity INTEGER,
     unit_price DECIMAL(12,2),
@@ -53,6 +54,7 @@ SELECT
     o.customer_id,
     o.store_id,
     o.channel_id,
+    a.province_id, 
     o.order_date,
     i.quantity,
     i.unit_price,
@@ -60,6 +62,7 @@ SELECT
     i.line_total
 FROM raw.sales_order_item i
 JOIN raw.sales_order o ON i.order_id = o.order_id
+LEFT JOIN raw.address a ON o.shipping_address_id = a.address_id -- Puente para la provincia
 WHERE o.status IN ('PAID', 'FULFILLED');
 
 -- ==========================================

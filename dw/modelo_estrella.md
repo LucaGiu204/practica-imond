@@ -49,6 +49,7 @@ erDiagram
         INTEGER customer_id
         INTEGER store_id
         INTEGER channel_id
+        INTEGER province_id
         TIMESTAMP order_date
         INTEGER quantity
         DECIMAL unit_price
