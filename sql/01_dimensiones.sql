@@ -62,3 +62,98 @@ LEFT JOIN raw.product_category AS f ON f.category_id = c.parent_id;    -- famili
 --       CAST(strftime(fecha, '%Y%m%d') AS INTEGER)
 --   * Si algo puede venir vacío (ej. NPS anónimos, sin cliente), podés agregar
 --     una fila "Desconocido" con clave -1 y usar COALESCE(clave, -1) en los hechos.
+
+
+CREATE TABLE dim_channel (
+    channel_key INTEGER PRIMARY KEY,
+    channel_id INTEGER NOT NULL UNIQUE,
+    code VARCHAR(20) NOT NULL,
+    name VARCHAR(50) NOT NULL
+);
+
+INSERT INTO dim_channel 
+SELECT
+    ROW_NUMBER() OVER (ORDER BY channel_id),
+    channel_id,
+    code,
+    name
+FROM raw.channel;
+
+CREATE TABLE dim_customer (
+    customer_key INTEGER PRIMARY KEY,
+    customer_id INTEGER NOT NULL UNIQUE,
+    email VARCHAR(120),
+    first_name VARCHAR(80),
+    last_name VARCHAR(80),
+    phone VARCHAR(30),
+    status CHAR(1),
+    created_at TIMESTAMP
+);
+
+INSERT INTO dim_customer
+SELECT
+    ROW_NUMBER() OVER (ORDER BY customer_id),
+    customer_id,
+    email,
+    first_name,
+    last_name,
+    phone,
+    status,
+    created_at
+FROM raw.customer;
+
+CREATE TABLE dim_date (
+    date_key INTEGER PRIMARY KEY,
+    full_date DATE NOT NULL UNIQUE,
+    year SMALLINT NOT NULL,
+    month TINYINT NOT NULL,
+    day TINYINT NOT NULL,
+    quarter TINYINT NOT NULL,
+    year_month VARCHAR(7) NOT NULL
+);
+
+INSERT INTO dim_date
+SELECT
+    CAST(strftime(fecha, '%Y%m%d') AS INTEGER) AS date_key,
+    CAST(fecha AS DATE) AS full_date,
+    YEAR(fecha) AS year,
+    MONTH(fecha) AS month,
+    DAY(fecha) AS day,
+    QUARTER(fecha) AS quarter,
+    strftime(fecha, '%Y-%m') AS year_month
+FROM range(
+    DATE '2024-01-01',
+    DATE '2025-10-01',
+    INTERVAL 1 DAY
+) AS calendario(fecha);
+
+CREATE TABLE dim_province (
+    province_key INTEGER PRIMARY KEY,
+    province_id INTEGER NOT NULL UNIQUE,
+    name VARCHAR(50) NOT NULL,
+    code VARCHAR(10)
+);
+
+INSERT INTO dim_province
+SELECT
+    ROW_NUMBER() OVER (ORDER BY province_id),
+    province_id,
+    name,
+    code
+FROM raw.province;
+
+CREATE TABLE dim_store (
+    store_key INTEGER PRIMARY KEY,
+    store_id INTEGER NOT NULL UNIQUE,
+    name VARCHAR(80) NOT NULL,
+    address_id INTEGER
+);
+
+INSERT INTO dim_store
+SELECT
+    ROW_NUMBER() OVER (ORDER BY store_id),
+    store_id,
+    name,
+    address_id
+FROM raw.store;
+
