@@ -26,3 +26,75 @@
 
 
 -- TU TURNO: creá acá las tablas de hechos.
+
+-- =====================================================================
+-- Tabla de hechos de pedidos de venta
+-- ====================================================================
+CREATE TABLE fact_sales_order (
+    order_id BIGINT PRIMARY KEY,
+
+    date_key INTEGER NOT NULL REFERENCES dim_date(date_key), -- REFERENCES usado para declarar las claves foráneas que apuntan a las dimensiones
+    customer_key INTEGER REFERENCES dim_customer(customer_key),
+    channel_key INTEGER NOT NULL REFERENCES dim_channel(channel_key),
+    province_key INTEGER REFERENCES dim_province(province_key), -- Puede ser NULL si la compra es presencial y no tiene dirección de envío
+    store_key INTEGER REFERENCES dim_store(store_key), -- Puede ser NULL si la compra es online y no tiene tienda asociada
+
+    order_date TIMESTAMP NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    currency_code CHAR(3),
+
+    subtotal DECIMAL(12,2) NOT NULL,
+    tax_amount DECIMAL(12,2) NOT NULL,
+    shipping_fee DECIMAL(12,2) NOT NULL,
+    discount_total DECIMAL(12,2) NOT NULL,
+    total_amount DECIMAL(12,2) NOT NULL
+);
+
+
+INSERT INTO fact_sales_order
+SELECT
+    o.order_id,
+    d.date_key,
+    c.customer_key,
+    ch.channel_key,
+    p.province_key,
+    s.store_key,
+    o.order_date,
+    o.status,
+    o.currency_code,
+    o.subtotal,
+    o.tax_amount,
+    o.shipping_fee,
+    COALESCE(descuentos.discount_total, 0) AS discount_total,
+    o.total_amount
+FROM raw.sales_order AS o
+
+INNER JOIN dim_date AS d
+    ON d.full_date = CAST(o.order_date AS DATE)
+
+INNER JOIN dim_customer AS c
+    ON c.customer_id = o.customer_id
+
+INNER JOIN dim_channel AS ch
+    ON ch.channel_id = o.channel_id
+
+LEFT JOIN raw.address AS a
+    ON o.shipping_address_id = a.address_id
+
+LEFT JOIN dim_province AS p
+    ON a.province_id = p.province_id
+
+LEFT JOIN dim_store AS s
+    ON o.store_id = s.store_id
+
+-- Calculamos el descuento total de cada pedido
+LEFT JOIN (
+    SELECT
+        order_id,
+        SUM(discount_amount) AS discount_total
+    FROM raw.sales_order_item
+    GROUP BY order_id
+) AS descuentos
+    ON o.order_id = descuentos.order_id;
+
+
