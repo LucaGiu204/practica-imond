@@ -45,3 +45,21 @@ SELECT
 FROM fact_web_session;
 
 
+-- KPI 4: NPS
+
+SELECT
+    (
+    COUNT(*) FILTER (WHERE score >= 9) - COUNT(*) FILTER (WHERE score <= 6)
+    ) * 100.0 / NULLIF(COUNT(*), 0) AS nps
+FROM fact_nps_response;
+
+SELECT
+    CASE
+        WHEN score >= 9 THEN 'Promotores'
+        WHEN score >= 7 THEN 'Pasivos'
+        ELSE 'Detractores'
+    END AS categoria_nps,
+    COUNT(*) AS cantidad
+FROM fact_nps_response
+GROUP BY categoria_nps;
+
