@@ -265,7 +265,7 @@ SELECT
 FROM raw.web_session AS s
 INNER JOIN dim_date AS d
     ON d.full_date = CAST(s.started_at AS DATE)
-INNER JOIN dim_customer AS c
+LEFT JOIN dim_customer AS c
     ON c.customer_id = s.customer_id;
 
 
