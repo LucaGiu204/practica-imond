@@ -1,0 +1,1 @@
+order_item_id,order_id,product_key,date_key,customer_key,channel_key,province_key,store_key,order_date,status,quantity,unit_price,discount_amount,line_total

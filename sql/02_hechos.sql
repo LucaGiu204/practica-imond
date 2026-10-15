@@ -78,13 +78,13 @@ INNER JOIN dim_customer AS c
 INNER JOIN dim_channel AS ch
     ON ch.channel_id = o.channel_id
 
-LEFT JOIN raw.address AS a
+LEFT JOIN raw.address AS a -- uso LEFT JOIN para los que pueden ser NULL (compras presenciales sin dirección de envío)
     ON o.shipping_address_id = a.address_id
 
-LEFT JOIN dim_province AS p
+LEFT JOIN dim_province AS p 
     ON a.province_id = p.province_id
 
-LEFT JOIN dim_store AS s
+LEFT JOIN dim_store AS s -- uso LEFT JOIN para los que pueden ser NULL (compras online sin tienda asociada)
     ON o.store_id = s.store_id
 
 -- Calculamos el descuento total de cada pedido
@@ -96,5 +96,53 @@ LEFT JOIN (
     GROUP BY order_id
 ) AS descuentos
     ON o.order_id = descuentos.order_id;
+
+
+-- =====================================================================
+-- Tabla de hechos de items en pedidos de venta
+-- ====================================================================
+
+CREATE TABLE fact_sales_order_item (
+    order_item_id BIGINT PRIMARY KEY,
+    order_id BIGINT NOT NULL,
+
+    product_key INTEGER NOT NULL REFERENCES dim_product(product_key), -- claves que voy a buscar en la tabla de hechos
+    date_key INTEGER NOT NULL REFERENCES dim_date(date_key),
+    customer_key INTEGER REFERENCES dim_customer(customer_key),
+    channel_key INTEGER NOT NULL REFERENCES dim_channel(channel_key),
+    province_key INTEGER REFERENCES dim_province(province_key),
+    store_key INTEGER REFERENCES dim_store(store_key),
+
+    order_date TIMESTAMP NOT NULL,
+    status VARCHAR(20) NOT NULL,
+
+    quantity INTEGER NOT NULL,
+    unit_price DECIMAL(12,2) NOT NULL,
+    discount_amount DECIMAL(12,2) NOT NULL,
+    line_total DECIMAL(12,2) NOT NULL
+);
+
+SELECT
+    i.order_item_id,
+    o.order_id,
+    p.product_key,
+    o.date_key,
+    o.customer_key,
+    o.channel_key,
+    o.province_key,
+    o.store_key,
+    o.order_date,
+    o.status,
+    i.quantity,
+    i.unit_price,
+    i.discount_amount,
+    i.line_total
+    
+FROM raw.sales_order_item AS i
+INNER JOIN fact_sales_order AS o --uso las claves que ya tengo en la tabla de hechos de pedidos para no tener que volver a unir con las dimensiones
+    ON i.order_id = o.order_id
+INNER JOIN dim_product AS p
+    ON i.product_id = p.product_id;
+
 
 
