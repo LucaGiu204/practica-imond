@@ -12,11 +12,13 @@ erDiagram
     dim_customer ||--o{ fact_sales_order : "customer_key"
     dim_customer ||--o{ fact_sales_order_item : "customer_key"
     dim_customer ||--o{ fact_shipment : "customer_key"
+    dim_customer ||--o{ fact_web_session : "customer_key"
     dim_date ||--o{ fact_payment : "payment_date_key"
     dim_date ||--o{ fact_sales_order : "date_key"
     dim_date ||--o{ fact_sales_order_item : "date_key"
     dim_date ||--o{ fact_shipment : "delivered_date_key"
     dim_date ||--o{ fact_shipment : "shipped_date_key"
+    dim_date ||--o{ fact_web_session : "date_key"
     dim_product ||--o{ fact_sales_order_item : "product_key"
     dim_province ||--o{ fact_payment : "province_key"
     dim_province ||--o{ fact_sales_order : "province_key"
@@ -132,5 +134,14 @@ erDiagram
         VARCHAR status
         TIMESTAMP shipped_at
         TIMESTAMP delivered_at
+    }
+    fact_web_session {
+        BIGINT session_id PK
+        INTEGER date_key FK
+        INTEGER customer_key FK
+        TIMESTAMP started_at
+        TIMESTAMP ended_at
+        VARCHAR source
+        VARCHAR device
     }
 ```

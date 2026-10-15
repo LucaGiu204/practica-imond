@@ -235,3 +235,35 @@ LEFT JOIN dim_date AS d1 --LEFT JOIN porque puede ser NULL si el envío aun no f
     ON d1.full_date = CAST(s.shipped_at AS DATE)
 LEFT JOIN dim_date AS d2 --LEFT JOIN porque puede ser NULL si el envío aun no fue entregado
     ON d2.full_date = CAST(s.delivered_at AS DATE);
+
+
+-- =====================================================================
+-- Tabla de hechos de sesiones web
+-- ====================================================================
+
+CREATE TABLE fact_web_session (
+    session_id BIGINT PRIMARY KEY,
+
+    date_key INTEGER NOT NULL REFERENCES dim_date(date_key),
+    customer_key INTEGER REFERENCES dim_customer(customer_key),
+
+    started_at TIMESTAMP NOT NULL,
+    ended_at TIMESTAMP,
+    source VARCHAR(50),
+    device VARCHAR(30)
+);
+
+INSERT INTO fact_web_session
+SELECT
+    s.session_id,
+    d.date_key,
+    c.customer_key,
+    s.started_at,
+    s.ended_at,
+    s.source,
+    s.device
+FROM raw.web_session AS s
+INNER JOIN dim_date AS d
+    ON d.full_date = CAST(s.started_at AS DATE)
+INNER JOIN dim_customer AS c
+    ON c.customer_id = s.customer_id;
