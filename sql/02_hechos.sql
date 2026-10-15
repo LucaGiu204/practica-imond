@@ -122,6 +122,7 @@ CREATE TABLE fact_sales_order_item (
     line_total DECIMAL(12,2) NOT NULL
 );
 
+INSERT INTO fact_sales_order_item
 SELECT
     i.order_item_id,
     o.order_id,
@@ -145,4 +146,46 @@ INNER JOIN dim_product AS p
     ON i.product_id = p.product_id;
 
 
+-- =====================================================================
+-- Tabla de hechos de pagos
+-- ====================================================================
+
+
+CREATE TABLE fact_payment (
+    payment_id BIGINT PRIMARY KEY,
+    order_id BIGINT NOT NULL,
+
+    payment_date_key INTEGER REFERENCES dim_date(date_key), -- puede ser NULL si el pago no se realizó (PENDING o FAILED)
+    customer_key INTEGER REFERENCES dim_customer(customer_key),
+    channel_key INTEGER NOT NULL REFERENCES dim_channel(channel_key),
+    province_key INTEGER REFERENCES dim_province(province_key),
+    store_key INTEGER REFERENCES dim_store(store_key),
+
+    method VARCHAR(20),
+    status VARCHAR(20),
+    amount DECIMAL(12,2) NOT NULL,
+    paid_at TIMESTAMP,
+    transaction_ref VARCHAR(80)
+);
+    
+INSERT INTO fact_payment
+SELECT
+    p.payment_id,
+    o.order_id,
+    d.date_key,
+    o.customer_key,
+    o.channel_key,
+    o.province_key,
+    o.store_key,
+    p.method,
+    p.status,
+    p.amount,
+    p.paid_at,
+    p.transaction_ref
+FROM raw.payment AS p
+INNER JOIN fact_sales_order AS o 
+    ON p.order_id = o.order_id
+LEFT JOIN dim_date AS d --LEFT JOIN porque puede ser NULL si el pago no se realizó (PENDING o FAILED)
+    ON d.full_date = CAST(p.paid_at AS DATE)
+    
 
