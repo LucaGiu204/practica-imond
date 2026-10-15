@@ -186,6 +186,52 @@ FROM raw.payment AS p
 INNER JOIN fact_sales_order AS o 
     ON p.order_id = o.order_id
 LEFT JOIN dim_date AS d --LEFT JOIN porque puede ser NULL si el pago no se realizó (PENDING o FAILED)
-    ON d.full_date = CAST(p.paid_at AS DATE)
+    ON d.full_date = CAST(p.paid_at AS DATE);
     
 
+-- =====================================================================
+-- Tabla de hechos de envíos
+-- ====================================================================
+
+
+CREATE TABLE fact_shipment (
+    shipment_id BIGINT PRIMARY KEY,
+    order_id BIGINT NOT NULL,
+
+    shipped_date_key INTEGER REFERENCES dim_date(date_key), -- dos fechas distintas: la fecha de envío y la fecha de entrega, ambas apuntando a la dimensión dim_date
+    delivered_date_key INTEGER REFERENCES dim_date(date_key), -- ambas pueden ser NULL si el envío no se entregó (PENDING o FAILED)
+
+    customer_key INTEGER REFERENCES dim_customer(customer_key),
+    channel_key INTEGER NOT NULL REFERENCES dim_channel(channel_key),
+    province_key INTEGER REFERENCES dim_province(province_key),
+    store_key INTEGER REFERENCES dim_store(store_key),
+
+    carrier VARCHAR(40),
+    tracking_number VARCHAR(60),
+    status VARCHAR(20),
+    shipped_at TIMESTAMP,
+    delivered_at TIMESTAMP
+);
+
+INSERT INTO fact_shipment
+SELECT
+    s.shipment_id,
+    o.order_id,
+    d1.date_key AS shipped_date_key,
+    d2.date_key AS delivered_date_key,
+    o.customer_key,
+    o.channel_key,
+    o.province_key,
+    o.store_key,
+    s.carrier,
+    s.tracking_number,
+    s.status,
+    s.shipped_at,
+    s.delivered_at
+FROM raw.shipment AS s
+INNER JOIN fact_sales_order AS o
+    ON s.order_id = o.order_id
+LEFT JOIN dim_date AS d1 --LEFT JOIN porque puede ser NULL si el envío aun no fue despachado
+    ON d1.full_date = CAST(s.shipped_at AS DATE)
+LEFT JOIN dim_date AS d2 --LEFT JOIN porque puede ser NULL si el envío aun no fue entregado
+    ON d2.full_date = CAST(s.delivered_at AS DATE);

@@ -7,19 +7,25 @@ erDiagram
     dim_channel ||--o{ fact_payment : "channel_key"
     dim_channel ||--o{ fact_sales_order : "channel_key"
     dim_channel ||--o{ fact_sales_order_item : "channel_key"
+    dim_channel ||--o{ fact_shipment : "channel_key"
     dim_customer ||--o{ fact_payment : "customer_key"
     dim_customer ||--o{ fact_sales_order : "customer_key"
     dim_customer ||--o{ fact_sales_order_item : "customer_key"
+    dim_customer ||--o{ fact_shipment : "customer_key"
     dim_date ||--o{ fact_payment : "payment_date_key"
     dim_date ||--o{ fact_sales_order : "date_key"
     dim_date ||--o{ fact_sales_order_item : "date_key"
+    dim_date ||--o{ fact_shipment : "delivered_date_key"
+    dim_date ||--o{ fact_shipment : "shipped_date_key"
     dim_product ||--o{ fact_sales_order_item : "product_key"
     dim_province ||--o{ fact_payment : "province_key"
     dim_province ||--o{ fact_sales_order : "province_key"
     dim_province ||--o{ fact_sales_order_item : "province_key"
+    dim_province ||--o{ fact_shipment : "province_key"
     dim_store ||--o{ fact_payment : "store_key"
     dim_store ||--o{ fact_sales_order : "store_key"
     dim_store ||--o{ fact_sales_order_item : "store_key"
+    dim_store ||--o{ fact_shipment : "store_key"
     dim_channel {
         INTEGER channel_key PK
         INTEGER channel_id
@@ -111,5 +117,20 @@ erDiagram
         DECIMAL unit_price
         DECIMAL discount_amount
         DECIMAL line_total
+    }
+    fact_shipment {
+        BIGINT shipment_id PK
+        BIGINT order_id
+        INTEGER shipped_date_key FK
+        INTEGER delivered_date_key FK
+        INTEGER customer_key FK
+        INTEGER channel_key FK
+        INTEGER province_key FK
+        INTEGER store_key FK
+        VARCHAR carrier
+        VARCHAR tracking_number
+        VARCHAR status
+        TIMESTAMP shipped_at
+        TIMESTAMP delivered_at
     }
 ```
