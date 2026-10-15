@@ -4,15 +4,18 @@ Generado por `run_sql.py` a partir de las tablas de `warehouse.duckdb`.
 
 ```mermaid
 erDiagram
+    dim_channel ||--o{ fact_nps_response : "channel_key"
     dim_channel ||--o{ fact_payment : "channel_key"
     dim_channel ||--o{ fact_sales_order : "channel_key"
     dim_channel ||--o{ fact_sales_order_item : "channel_key"
     dim_channel ||--o{ fact_shipment : "channel_key"
+    dim_customer ||--o{ fact_nps_response : "customer_key"
     dim_customer ||--o{ fact_payment : "customer_key"
     dim_customer ||--o{ fact_sales_order : "customer_key"
     dim_customer ||--o{ fact_sales_order_item : "customer_key"
     dim_customer ||--o{ fact_shipment : "customer_key"
     dim_customer ||--o{ fact_web_session : "customer_key"
+    dim_date ||--o{ fact_nps_response : "date_key"
     dim_date ||--o{ fact_payment : "payment_date_key"
     dim_date ||--o{ fact_sales_order : "date_key"
     dim_date ||--o{ fact_sales_order_item : "date_key"
@@ -73,6 +76,14 @@ erDiagram
         INTEGER store_id
         VARCHAR name
         INTEGER address_id
+    }
+    fact_nps_response {
+        BIGINT nps_id PK
+        INTEGER date_key FK
+        INTEGER customer_key FK
+        INTEGER channel_key FK
+        SMALLINT score
+        VARCHAR comment
     }
     fact_payment {
         BIGINT payment_id PK

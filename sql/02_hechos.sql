@@ -267,3 +267,37 @@ INNER JOIN dim_date AS d
     ON d.full_date = CAST(s.started_at AS DATE)
 INNER JOIN dim_customer AS c
     ON c.customer_id = s.customer_id;
+
+
+-- =====================================================================
+-- Tabla de hechos de respuestas NPS
+-- ====================================================================
+
+CREATE TABLE fact_nps_response (
+    nps_id BIGINT PRIMARY KEY,
+
+    date_key INTEGER NOT NULL REFERENCES dim_date(date_key),
+    customer_key INTEGER REFERENCES dim_customer(customer_key),
+    channel_key INTEGER NOT NULL REFERENCES dim_channel(channel_key),
+
+    score SMALLINT NOT NULL CHECK (score BETWEEN 0 AND 10),
+    comment VARCHAR(500)
+);
+
+INSERT INTO fact_nps_response
+SELECT
+    r.nps_id,
+    d.date_key,
+    c.customer_key,
+    ch.channel_key,
+    r.score,
+    r.comment
+FROM raw.nps_response AS r
+INNER JOIN dim_date AS d
+    ON d.full_date = CAST(r.responded_at AS DATE)
+LEFT JOIN dim_customer AS c -- LEFT JOIN porque puede ser NULL si la respuesta NPS no tiene asociado un cliente (por ejemplo, si es anónima)
+    ON c.customer_id = r.customer_id
+INNER JOIN dim_channel AS ch
+    ON ch.channel_id = r.channel_id;
+
+
