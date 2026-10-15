@@ -59,7 +59,9 @@ SELECT
         WHEN score >= 7 THEN 'Pasivos'
         ELSE 'Detractores'
     END AS categoria_nps,
-    COUNT(*) AS cantidad
+    COUNT(*) AS cantidad,
+    SUM(COUNT(*)) OVER () AS total,
+    COUNT(*) * 100.0 / NULLIF(SUM(COUNT(*)) OVER (), 0) AS porcentaje
 FROM fact_nps_response
 GROUP BY categoria_nps;
 
