@@ -36,3 +36,12 @@ SELECT
 FROM fact_sales_order
 WHERE status IN ('PAID', 'FULFILLED');
 
+
+-- KPI 3: Usuarios activos
+
+SELECT
+    COUNT(DISTINCT customer_key) + COUNT(*) FILTER (WHERE customer_key IS NULL)
+    AS usuarios_activos
+FROM fact_web_session;
+
+
