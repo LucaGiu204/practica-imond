@@ -155,4 +155,13 @@ erDiagram
         VARCHAR source
         VARCHAR device
     }
+    mart_ventas {
+        BIGINT order_id
+        DATE fecha
+        VARCHAR mes
+        VARCHAR canal
+        VARCHAR provincia
+        DECIMAL ventas_con_iva
+        DECIMAL ventas_sin_iva
+    }
 ```
