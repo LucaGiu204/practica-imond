@@ -22,8 +22,7 @@ ORDER BY product_key;
 
 SELECT
     SUM(total_amount) AS ventas_con_iva,
-    SUM(total_amount) - SUM(tax_amount) AS ventas_sin_iva,
-    SUM(total_amount) - SUM(tax_amount) - SUM(shipping_fee) AS ventas_sin_iva_ni_envio
+    SUM(total_amount) - SUM(tax_amount) AS ventas_sin_iva
 FROM fact_sales_order
 WHERE status IN ('PAID', 'FULFILLED');
 
@@ -31,8 +30,7 @@ WHERE status IN ('PAID', 'FULFILLED');
 
 SELECT
     SUM(total_amount) / COUNT(*) AS ticket_promedio_con_iva,
-    SUM(total_amount - tax_amount) / COUNT(*) AS ticket_promedio_sin_iva,
-    SUM(total_amount - tax_amount - shipping_fee) / COUNT(*) AS ticket_promedio_sin_iva_ni_envio
+    SUM(total_amount - tax_amount) / COUNT(*) AS ticket_promedio_sin_iva
 FROM fact_sales_order
 WHERE status IN ('PAID', 'FULFILLED');
 
@@ -65,3 +63,15 @@ SELECT
 FROM fact_nps_response
 GROUP BY categoria_nps;
 
+-- KPI 5: Ventas por provincia
+
+SELECT
+    COALESCE(p.name, 'Sin provincia') AS provincia,
+    SUM(o.total_amount) AS ventas_con_iva,
+    SUM(o.total_amount - o.tax_amount) AS ventas_sin_iva
+FROM fact_sales_order AS o
+LEFT JOIN dim_province AS p
+    ON o.province_key = p.province_key
+WHERE o.status IN ('PAID', 'FULFILLED')
+GROUP BY p.name
+ORDER BY ventas_con_iva DESC;
