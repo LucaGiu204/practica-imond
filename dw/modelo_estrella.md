@@ -155,6 +155,15 @@ erDiagram
         VARCHAR source
         VARCHAR device
     }
+    mart_actividad_web {
+        DATE fecha
+        VARCHAR mes
+        BIGINT session_id
+        INTEGER customer_key
+        VARCHAR source
+        VARCHAR device
+        VARCHAR usuario_analitico_id
+    }
     mart_nps {
         BIGINT nps_id
         DATE fecha

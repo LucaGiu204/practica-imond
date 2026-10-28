@@ -75,3 +75,24 @@ INNER JOIN dim_product AS p
 WHERE i.status IN ('PAID', 'FULFILLED')
 GROUP BY d.year_month, p.name
 ORDER BY mes, ranking;
+
+
+-- MART 4: Actividad web
+
+CREATE TABLE mart_actividad_web AS
+SELECT
+    d.full_date AS fecha,
+    d.year_month AS mes,
+    s.session_id,
+    s.customer_key,
+    s.source,
+    s.device,
+    CASE
+    WHEN s.customer_key IS NOT NULL
+        THEN concat('C_', CAST(s.customer_key AS VARCHAR))
+    ELSE
+        concat('A_', CAST(s.session_id AS VARCHAR))
+    END AS usuario_analitico_id
+FROM fact_web_session AS s
+INNER JOIN dim_date AS d
+    ON s.date_key = d.date_key;
