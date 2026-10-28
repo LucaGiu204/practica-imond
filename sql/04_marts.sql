@@ -55,4 +55,23 @@ INNER JOIN dim_channel AS c
     ON n.channel_key = c.channel_key;
 
 
+-- MART 3: Ranking mensual de productos
 
+CREATE TABLE mart_ranking_productos AS
+SELECT
+    d.year_month AS mes,
+    p.name AS producto,
+    SUM(i.quantity) AS unidades_vendidas,
+    SUM(i.line_total) AS ventas_producto,
+    RANK() OVER (
+        PARTITION BY d.year_month
+        ORDER BY SUM(i.line_total) DESC
+    ) AS ranking
+FROM fact_sales_order_item AS i
+INNER JOIN dim_date AS d
+    ON i.date_key = d.date_key
+INNER JOIN dim_product AS p
+    ON i.product_key = p.product_key
+WHERE i.status IN ('PAID', 'FULFILLED')
+GROUP BY d.year_month, p.name
+ORDER BY mes, ranking;

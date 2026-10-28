@@ -164,6 +164,13 @@ erDiagram
         VARCHAR categoria_nps
         INTEGER aporte_nps
     }
+    mart_ranking_productos {
+        VARCHAR mes
+        VARCHAR producto
+        HUGEINT unidades_vendidas
+        DECIMAL ventas_producto
+        BIGINT ranking
+    }
     mart_ventas {
         BIGINT order_id
         DATE fecha
