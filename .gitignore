@@ -209,3 +209,6 @@ __marimo__/
 # Data warehouse local (se regenera con run_sql.py)
 *.duckdb
 *.duckdb.wal
+
+# CSV generados por el Data Warehouse
+dw/*.csv
