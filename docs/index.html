@@ -1,33 +1,103 @@
-
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="styles.css">
-    <title>EcoBottle AR | Dashboard Comercial</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#092f2d">
+  <meta name="description" content="Panel de inteligencia comercial de EcoBottle AR elaborado a partir de un Data Warehouse dimensional y Data Marts.">
+  <title>EcoBottle AR · Inteligencia comercial</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./app.js" defer></script>
 </head>
-
 <body>
-    <header>
-        <h1>EcoBottle AR</h1>
-        <p>Dashboard de inteligencia comercial</p>
-    </header>
+  <div class="shell">
+    <aside class="sidebar" aria-label="Navegación principal">
+      <a class="brand" href="#resumen" aria-label="EcoBottle, inicio">
+        <span class="brand-mark" aria-hidden="true">E<span class="brand-leaf">✦</span></span>
+        <span class="brand-copy">EcoBottle <small>AR · ANALYTICS</small></span>
+      </a>
+      <div class="side-caption">WORKSPACE</div>
+      <nav class="navigation">
+        <a class="nav-link active" href="#resumen"><span class="nav-symbol">◫</span> Resumen ejecutivo</a>
+        <a class="nav-link" href="#comercial"><span class="nav-symbol">▥</span> Rendimiento comercial</a>
+        <a class="nav-link" href="#experiencia"><span class="nav-symbol">♡</span> Experiencia de clientes</a>
+        <a class="nav-link" href="#productos"><span class="nav-symbol">◈</span> Portafolio de productos</a>
+        <a class="nav-link" href="#arquitectura"><span class="nav-symbol">⬡</span> Arquitectura de datos</a>
+      </nav>
+      <div class="side-bottom">
+        <div class="side-status"><i></i><span>Datos generados desde Mart</span></div>
+        <p>Modelo estrella · DuckDB · SQL</p>
+        <a href="https://github.com/LucaGiu204/practica-imond" target="_blank" rel="noopener noreferrer">Ver repositorio ↗</a>
+      </div>
+    </aside>
 
-    <main>
-        <h2>Indicadores comerciales</h2>
-        <p>
-            Análisis de ventas, usuarios activos,
-            ticket promedio, NPS y productos.
-        </p>
+    <main class="main" id="resumen">
+      <div class="topbar">
+        <div class="breadcrumb">ECObottle / <b>Panel comercial</b></div>
+        <div class="top-actions"><span class="pill"><span class="live-dot"></span> Modelo dimensional</span><span class="top-date">Corte: 30 sep 2025</span></div>
+      </div>
+      <div class="content">
+        <section class="hero">
+          <div class="hero-text"><div class="eyebrow">INTELIGENCIA DE NEGOCIOS <span class="eyebrow-rule"></span> ECOBOTTLE AR</div>
+            <h1>Decisiones más claras,<br><em>negocios más sostenibles.</em></h1>
+            <p>Una visión integral de ventas, actividad digital y satisfacción de clientes, construida sobre el Data Warehouse de EcoBottle.</p>
+          </div>
+          <div class="hero-visual" aria-hidden="true"><div class="orbit outer"></div><div class="orbit inner"></div><div class="bottle"><div class="bottle-cap"></div><div class="bottle-neck"></div><div class="bottle-body"><div class="bottle-wave"></div><span>E<span>✦</span></span></div></div><div class="hero-bubble b1">+ Datos</div><div class="hero-bubble b2">− Ruido</div></div>
+        </section>
 
-        <h3>Arquitectura de datos</h3>
-        <p>
-            Este dashboard utilizará datos provenientes
-            del Data Warehouse y sus Data Marts.
-        </p>
+        <section class="filters-panel" aria-label="Filtros del tablero">
+          <div class="filter-header"><div><h2>Explorá tus resultados</h2><p>Los indicadores cambian según los filtros compatibles con cada fuente.</p></div><button id="clear-filters" class="ghost-button" type="button">↺ Restablecer filtros</button></div>
+          <div class="filters-grid">
+            <label class="field">Desde <input type="date" id="date-from" aria-label="Fecha inicial"></label>
+            <label class="field">Hasta <input type="date" id="date-to" aria-label="Fecha final"></label>
+            <label class="field">Canal <select id="channel-filter"><option value="">Todos los canales</option></select></label>
+            <label class="field">Provincia <select id="province-filter"><option value="">Todas las provincias</option></select></label>
+            <label class="field">Producto <select id="product-filter"><option value="">Todos los productos</option></select></label>
+          </div>
+          <div class="filter-foot"><span id="filter-summary">Preparando datos...</span><span class="filter-note" id="filter-compat">NPS usa fecha y canal; actividad web usa fecha.</span></div>
+        </section>
+
+        <section class="section" aria-labelledby="kpis-title">
+          <div class="section-heading"><div><div class="section-overline">01 / VISIÓN GENERAL</div><h2 id="kpis-title">El negocio, en perspectiva</h2></div><div class="segmented" role="group" aria-label="Modalidad de ventas"><button id="tax-with" class="selected" type="button" aria-pressed="true">Con IVA</button><button id="tax-without" type="button" aria-pressed="false">Sin IVA</button></div></div>
+          <div class="kpi-grid">
+            <article class="kpi-card"><div class="kpi-top"><span>Facturación total</span><span class="metric-icon green">↗</span></div><div class="kpi-value" id="kpi-sales">—</div><p class="kpi-detail" id="kpi-sales-detail">Pedidos pagados y completados</p><div class="mini-rule green-bar"></div></article>
+            <article class="kpi-card"><div class="kpi-top"><span>Usuarios activos*</span><span class="metric-icon mint">◉</span></div><div class="kpi-value" id="kpi-users">—</div><p class="kpi-detail">Identificados únicos + sesiones anónimas</p><div class="mini-rule mint-bar"></div></article>
+            <article class="kpi-card"><div class="kpi-top"><span>Ticket promedio</span><span class="metric-icon gold">¤</span></div><div class="kpi-value" id="kpi-ticket">—</div><p class="kpi-detail" id="kpi-ticket-detail">Importe medio por pedido válido</p><div class="mini-rule gold-bar"></div></article>
+            <article class="kpi-card"><div class="kpi-top"><span>Net Promoter Score</span><span class="metric-icon purple">♡</span></div><div class="kpi-value" id="kpi-nps">—</div><p class="kpi-detail" id="kpi-nps-detail">Satisfacción de clientes · Escala −100 a +100</p><div class="mini-rule purple-bar"></div></article>
+          </div>
+        </section>
+
+        <section class="section" id="comercial" aria-labelledby="comercial-title">
+          <div class="section-heading"><div><div class="section-overline">02 / RENDIMIENTO COMERCIAL</div><h2 id="comercial-title">Cómo evoluciona la operación</h2></div><span class="section-hint">Valores en ARS · Pedidos válidos</span></div>
+          <div class="chart-grid">
+            <article class="panel chart-panel wide"><div class="panel-head"><div><h3>Evolución de ventas</h3><p>Facturación mensual de pedidos válidos</p></div><span class="chip">ARS</span></div><div class="chart-area" id="sales-chart" role="img" aria-label="Gráfico de evolución mensual de ventas"></div></article>
+            <article class="panel chart-panel"><div class="panel-head"><div><h3>Ventas por provincia</h3><p>Comparativa geográfica</p></div><span class="chip">Distribución</span></div><div id="province-bars" class="bar-chart"></div></article>
+            <article class="panel chart-panel"><div class="panel-head"><div><h3>Usuarios activos*</h3><p>Actividad mensual estimada</p></div><span class="chip">Usuarios</span></div><div class="chart-area" id="users-chart" role="img" aria-label="Gráfico de usuarios activos por mes"></div></article>
+          </div>
+        </section>
+
+        <section class="section" id="experiencia" aria-labelledby="experiencia-title">
+          <div class="section-heading"><div><div class="section-overline">03 / EXPERIENCIA DE CLIENTES</div><h2 id="experiencia-title">Escuchar también es crecer</h2></div><span class="section-hint">Encuestas reales del conjunto de muestra</span></div>
+          <div class="chart-grid">
+            <article class="panel chart-panel wide"><div class="panel-head"><div><h3>Tendencia del NPS</h3><p>Promedio mensual de los aportes de las respuestas</p></div><span class="chip">Puntos NPS</span></div><div class="chart-area" id="nps-chart" role="img" aria-label="Gráfico de tendencia mensual de NPS"></div></article>
+            <article class="panel chart-panel"><div class="panel-head"><div><h3>Perfil de satisfacción</h3><p>Promotores, pasivos y detractores</p></div><span class="chip">Encuestas</span></div><div class="donut-wrapper"><div id="nps-donut" class="donut" aria-label="Distribución NPS"><div class="donut-center"><strong id="nps-total">—</strong><span>respuestas</span></div></div><div id="nps-legend" class="donut-legend"></div></div></article>
+          </div>
+        </section>
+
+        <section class="section" id="productos" aria-labelledby="productos-title">
+          <div class="section-heading"><div><div class="section-overline">04 / PRODUCTOS</div><h2 id="productos-title">Qué eligen nuestros clientes</h2></div><span class="section-hint">Importes de líneas sin IVA ni envío</span></div>
+          <article class="panel products-panel"><div class="panel-head"><div><h3>Ranking de productos</h3><p>Ordenado por facturación de líneas, neta de descuentos</p></div><label class="month-select">Mes del ranking <select id="ranking-month" aria-label="Mes del ranking de productos"></select></label></div><div class="product-list" id="product-ranking"></div><p class="panel-footnote">El ranking considera las fechas, canal y provincia seleccionados; se calcula sobre el detalle de productos preparado en SQL.</p></article>
+        </section>
+
+        <section class="architecture-section" id="arquitectura" aria-labelledby="arquitectura-title">
+          <div class="arch-title"><div><div class="section-overline">05 / TRAZABILIDAD</div><h2 id="arquitectura-title">Una arquitectura en la que confiar</h2><p>Los datos se transforman en DuckDB antes de llegar al navegador. La página nunca consulta las fuentes RAW.</p></div><span class="arch-badge">RAW aislado del dashboard</span></div>
+          <div class="pipeline"><div><b>01 · Origen</b><strong>CSV RAW</strong><small>Solo ETL/ELT</small></div><span>→</span><div><b>02 · Modelado</b><strong>Modelo estrella</strong><small>6 dimensiones · 6 hechos</small></div><span>→</span><div><b>03 · Preparación</b><strong>Data Marts</strong><small>SQL / DuckDB</small></div><span>→</span><div><b>04 · Publicación</b><strong>GitHub Pages</strong><small>JSON exportado de Mart</small></div></div>
+          <div class="method-notes"><p><b>* Usuarios activos:</b> se cuentan clientes identificados distintos y una identidad por cada sesión anónima. Las sesiones anónimas no equivalen necesariamente a personas únicas.</p><p><b>Compatibilidad de filtros:</b> la provincia y el producto no se atribuyen a NPS ni a actividad web, ya que sus fuentes no tienen esa relación. En ventas, filtrar producto selecciona los <b>pedidos que contienen ese producto</b> (importe total del pedido); el ranking utiliza solo importes de las líneas de productos.</p></div>
+        </section>
+        <footer class="footer"><span>© EcoBottle AR · Proyecto académico de inteligencia comercial</span><span id="data-source-label">Fuente: Data Marts del modelo estrella</span></footer>
+      </div>
     </main>
+  </div>
+  <div id="status-overlay" class="status-overlay" role="status" aria-live="polite"><div class="status-box"><div class="spinner"></div><h2 id="status-title">Preparando inteligencia comercial</h2><p id="status-message">Conectando con las Data Marts publicadas…</p></div></div>
 </body>
-
 </html>
