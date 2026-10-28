@@ -28,5 +28,31 @@ LEFT JOIN dim_province AS p
 WHERE o.status IN ('PAID', 'FULFILLED');
 
 
+-- MART 2: NPS
+
+CREATE TABLE mart_nps AS
+SELECT
+    n.nps_id,
+    d.full_date AS fecha,
+    d.year_month AS mes,
+    c.name AS canal,
+    n.score,
+    CASE
+        WHEN n.score >= 9 THEN 'Promotores'
+        WHEN n.score >= 7 THEN 'Pasivos'
+        ELSE 'Detractores'
+    END AS categoria_nps,
+    CASE
+        WHEN n.score >= 9 THEN 100
+        WHEN n.score >= 7 THEN 0
+        ELSE -100
+    END AS aporte_nps
+
+FROM fact_nps_response AS n
+INNER JOIN dim_date AS d
+    ON n.date_key = d.date_key
+INNER JOIN dim_channel AS c
+    ON n.channel_key = c.channel_key;
+
 
 

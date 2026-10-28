@@ -155,6 +155,15 @@ erDiagram
         VARCHAR source
         VARCHAR device
     }
+    mart_nps {
+        BIGINT nps_id
+        DATE fecha
+        VARCHAR mes
+        VARCHAR canal
+        SMALLINT score
+        VARCHAR categoria_nps
+        INTEGER aporte_nps
+    }
     mart_ventas {
         BIGINT order_id
         DATE fecha
