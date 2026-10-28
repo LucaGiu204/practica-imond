@@ -75,3 +75,24 @@ LEFT JOIN dim_province AS p
 WHERE o.status IN ('PAID', 'FULFILLED')
 GROUP BY p.name
 ORDER BY ventas_con_iva DESC;
+
+
+-- KPI 6: Ranking mensual de productos
+
+SELECT
+    d.year_month AS mes,
+    p.name AS producto,
+    SUM(i.quantity) AS unidades_vendidas,
+    SUM(i.line_total) AS ventas_producto,
+    RANK() OVER (
+        PARTITION BY d.year_month
+        ORDER BY SUM(i.line_total) DESC
+    ) AS ranking
+FROM fact_sales_order_item AS i
+INNER JOIN dim_date AS d
+    ON i.date_key = d.date_key
+INNER JOIN dim_product AS p
+    ON i.product_key = p.product_key
+WHERE i.status IN ('PAID', 'FULFILLED')
+GROUP BY d.year_month, p.name
+ORDER BY mes, ranking;
