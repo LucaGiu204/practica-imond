@@ -1,5 +1,5 @@
 /* EcoBottle AR — Dashboard estático.
- * SOLO consume JSON exportados desde Data Marts (docs/data/).
+ * SOLO consume CSV exportados desde Data Marts (docs/data/).
  * No lee CSV originales ni fuentes transaccionales.
  * Agregaciones de presentación permiten filtros interactivos sin backend.
  */
@@ -22,17 +22,121 @@
   const state = {ventas:[],nps:[],actividad:[],productos:[],ranking:[],tax:'with'};
   const f = {from:'',to:'',channel:'',province:'',product:'',month:''};
   const PATH = './data/';
-  const allowedFiles = ['ventas','nps','actividad','detalle_productos','ranking_sql'];
+  const sources = [
+    ["mart_ventas.csv", [
+      "order_id", "fecha", "mes", "canal", "provincia",
+      "ventas_con_iva", "ventas_sin_iva"
+    ]],
+    ["mart_nps.csv", [
+      "fecha", "mes", "canal", "aporte_nps", "categoria_nps"
+    ]],
+    ["mart_actividad_web.csv", [
+      "fecha", "mes", "usuario_analitico_id", "source", "device"
+    ]],
+    ["mart_detalle_productos.csv", [
+      "order_id", "fecha", "mes", "canal", "provincia",
+      "producto", "unidades", "ventas_producto"
+    ]],
+    ["mart_ranking_productos.csv", [
+      "mes", "producto", "unidades_vendidas",
+      "ventas_producto", "ranking"
+    ]]
+  ];
   const keyFrom = (d)=>d.slice(0,7);
   const isInDates = (day)=> (!f.from||day>=f.from) && (!f.to||day<=f.to);
   const taxCol = ()=> state.tax==='with'?5:6;
 
+  function readCSV(text, columns) {
+    const rows = [];
+    let row = [];
+    let field = "";
+    let quoted = false;
+
+    text = text.replace(/^\uFEFF/, "");
+
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
+
+      if (quoted) {
+        if (char === '"' && text[i + 1] === '"') {
+          field += '"';
+          i++;
+        } else if (char === '"') {
+          quoted = false;
+        } else {
+          field += char;
+        }
+      } else if (char === '"') {
+        quoted = true;
+      } else if (char === ",") {
+        row.push(field);
+        field = "";
+      } else if (char === "\n" || char === "\r") {
+        if (char === "\r" && text[i + 1] === "\n") i++;
+        row.push(field);
+        if (row.some(value => value !== "")) rows.push(row);
+        row = [];
+        field = "";
+      } else {
+        field += char;
+      }
+    }
+
+    if (field !== "" || row.length) {
+      row.push(field);
+      rows.push(row);
+    }
+
+    const [headers, ...data] = rows;
+
+    if (!headers) {
+      throw new Error("El archivo CSV está vacío");
+    }
+
+    const indexes = columns.map(name => {
+      const index = headers.indexOf(name);
+
+      if (index === -1) {
+        throw new Error(`No se encontró la columna ${name}`);
+      }
+
+      return index;
+    });
+
+    return data.map(row =>
+      indexes.map(index => row[index] ?? "")
+    );
+  }
+
   async function load(){
     try{
-      const response=await Promise.all(allowedFiles.map(name=>fetch(PATH+name+'.json',{cache:'no-cache'})));
-      for(let i=0;i<response.length;i++)if(!response[i].ok)throw new Error(`No pude abrir docs/data/${allowedFiles[i]}.json (HTTP ${response[i].status}).`);
-      const content=await Promise.all(response.map(r=>r.json()));
-      [state.ventas,state.nps,state.actividad,state.productos,state.ranking]=content;
+      const response = await Promise.all(
+        sources.map(([file]) =>
+          fetch(PATH + file, { cache: "no-cache" })
+        )
+      );
+
+      for (let i = 0; i < response.length; i++) {
+        if (!response[i].ok) {
+          throw new Error(
+            `No se pudo abrir ${sources[i][0]} (HTTP ${response[i].status})`
+          );
+        }
+      }
+
+      const content = await Promise.all(
+        response.map(r => r.text())
+      );
+
+      [
+        state.ventas,
+        state.nps,
+        state.actividad,
+        state.productos,
+        state.ranking
+      ] = content.map((text, i) =>
+        readCSV(text, sources[i][1])
+      );
       const allDates=state.ventas.map(v=>v[1]).filter(Boolean).sort();
       if(!allDates.length)throw new Error('La Mart de ventas no contiene registros. Revisá la exportación SQL.');
       f.from=allDates[0];f.to=allDates[allDates.length-1];
@@ -53,7 +157,7 @@
       console.error(err);
       const overlay=$('status-overlay');overlay.querySelector('.status-box').classList.add('error');
       $('status-title').textContent='Faltan los datos publicados';
-      $('status-message').textContent=`${err.message} Ejecutá python run_sql.py y subí los JSON generados en docs/data/ al repositorio.`;
+      $('status-message').textContent=`${err.message} Ejecutá python run_sql.py y subí los CSV generados en docs/data/ al repositorio.`;
     }
   }
   function addOptions(id, values){
