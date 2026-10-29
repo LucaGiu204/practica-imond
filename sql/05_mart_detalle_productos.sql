@@ -1,12 +1,10 @@
 -- =====================================================================
 -- MART 5: Detalle de productos para filtros del dashboard web
 -- =====================================================================
--- Fuente EXCLUSIVA: modelo estrella (hechos y dimensiones).
 -- Granularidad: una línea de producto por pedido válido.
 -- Esta Mart permite cruzar producto con fecha, canal y provincia,
 -- y vincular el pedido completo SIN duplicar la facturación.
 -- La web filtra pedidos de mart_ventas a través de order_id.
--- NO se utilizan tablas raw.* aquí.
 
 CREATE TABLE mart_detalle_productos AS
 SELECT
