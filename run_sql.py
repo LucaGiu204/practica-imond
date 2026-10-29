@@ -11,16 +11,20 @@ Las tablas de origen (los CSV de raw/) están disponibles en el esquema raw:
 
 Cada vez que se arma el data warehouse:
   1. Borra la base warehouse.duckdb y la vuelve a crear desde cero.
-  2. Ejecuta los archivos de sql/ en orden alfabético (01_..., 02_..., 03_...).
+  2. Ejecuta todos los archivos de sql/ en orden alfabético (01_... a 05_...).
      Si una consulta es un SELECT, muestra el resultado en la terminal.
   3. Exporta cada tabla creada a dw/<tabla>.csv (la carpeta dw/ se regenera completa).
   4. Genera dw/modelo_estrella.md con el diagrama del modelo (GitHub lo dibuja solo).
+  5. Exporta JSON a docs/data/ desde tablas mart_* para GitHub Pages (nunca desde raw).
 
 La interfaz del navegador necesita internet. Sin conexión se abre una consola SQL en la terminal.
 """
 from __future__ import annotations
 
 import argparse
+import datetime as dt
+import json
+from decimal import Decimal
 import os
 import re
 import socket
@@ -35,6 +39,7 @@ SQL_DIR = ROOT / "sql"
 DW_DIR = ROOT / "dw"
 DATABASE = ROOT / "warehouse.duckdb"
 DIAGRAM = DW_DIR / "modelo_estrella.md"
+PAGES_DATA_DIR = ROOT / "docs" / "data"
 UI_HOST = "ui.duckdb.org"  # de acá la interfaz descarga sus archivos
 ALREADY_OPEN = ("La base warehouse.duckdb está abierta en otra terminal (¿quedó abierto --ui o --explorar?).\n"
                 "Cerrala presionando Enter en esa terminal y volvé a ejecutar.")
@@ -51,6 +56,69 @@ def create_raw_views(con: duckdb.DuckDBPyConnection) -> list[str]:
         con.sql(f"CREATE OR REPLACE VIEW raw.{path.stem} AS SELECT * FROM read_csv('{path.as_posix()}')")
         names.append(path.stem)
     return names
+
+
+# ---------------------------------------------------------------------------
+# Datos de GitHub Pages: SOLO lee marts ya materializadas en main.
+# El navegador consulta docs/data/*.json; nunca accede a raw.
+# El orden de las columnas de cada SELECT coincide con docs/app.js.
+# ---------------------------------------------------------------------------
+PAGES_QUERIES = {
+    "ventas": ("mart_ventas",
+        "SELECT order_id, CAST(fecha AS VARCHAR), mes, canal, provincia, "
+        "ventas_con_iva, ventas_sin_iva FROM main.mart_ventas ORDER BY fecha, order_id"),
+    "nps": ("mart_nps",
+        "SELECT CAST(fecha AS VARCHAR), mes, canal, aporte_nps, categoria_nps "
+        "FROM main.mart_nps ORDER BY fecha, nps_id"),
+    "actividad": ("mart_actividad_web",
+        "SELECT CAST(fecha AS VARCHAR), mes, usuario_analitico_id, source, device "
+        "FROM main.mart_actividad_web ORDER BY fecha, session_id"),
+    "detalle_productos": ("mart_detalle_productos",
+        "SELECT order_id, CAST(fecha AS VARCHAR), mes, canal, provincia, producto, "
+        "unidades, ventas_producto FROM main.mart_detalle_productos "
+        "ORDER BY fecha, order_id, order_item_id"),
+    "ranking_sql": ("mart_ranking_productos",
+        "SELECT mes, producto, unidades_vendidas, ventas_producto, ranking "
+        "FROM main.mart_ranking_productos ORDER BY mes, ranking"),
+}
+
+
+def export_dashboard(con: duckdb.DuckDBPyConnection, tables: list[str]) -> None:
+    """Genera JSON estáticos exclusivamente desde Data Marts del modelo estrella."""
+    missing = sorted({table for table, _ in PAGES_QUERIES.values()} - set(tables))
+    if missing:
+        raise RuntimeError("Faltan Data Marts para GitHub Pages: " + ", ".join(missing))
+
+    PAGES_DATA_DIR.mkdir(parents=True, exist_ok=True)
+    row_counts = {}
+    print("\nExportación GitHub Pages (solo Data Marts):")
+    for name, (table, query) in PAGES_QUERIES.items():
+        rows = con.execute(query).fetchall()
+        values = [
+            [
+                float(value) if isinstance(value, Decimal)
+                else value.isoformat() if isinstance(value, (dt.date, dt.datetime))
+                else value
+                for value in row
+            ]
+            for row in rows
+        ]
+        path = PAGES_DATA_DIR / f"{name}.json"
+        temporary = path.with_suffix(".json.tmp")
+        with temporary.open("w", encoding="utf-8") as output:
+            json.dump(values, output, ensure_ascii=False, separators=(",", ":"))
+        temporary.replace(path)
+        row_counts[table] = len(values)
+        print(f"  {path.relative_to(ROOT)}: {len(values)} filas")
+
+    (PAGES_DATA_DIR / "manifest.json").write_text(
+        json.dumps({
+            "origen": "Data Marts materializadas desde el modelo estrella",
+            "generado_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
+            "filas": row_counts
+        }, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -168,6 +236,7 @@ def build() -> duckdb.DuckDBPyConnection:
     if tables:
         export_tables(con, tables)
         write_diagram(con, tables)
+        export_dashboard(con, tables)
     else:
         print("\nTodavía no se creó ninguna tabla.")
     print(f"\nListo. Base de datos: {DATABASE.name}")
