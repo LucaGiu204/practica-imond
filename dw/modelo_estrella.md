@@ -164,6 +164,17 @@ erDiagram
         VARCHAR device
         VARCHAR usuario_analitico_id
     }
+    mart_detalle_productos {
+        BIGINT order_item_id
+        BIGINT order_id
+        DATE fecha
+        VARCHAR mes
+        VARCHAR canal
+        VARCHAR provincia
+        VARCHAR producto
+        INTEGER unidades
+        DECIMAL ventas_producto
+    }
     mart_nps {
         BIGINT nps_id
         DATE fecha
