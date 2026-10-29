@@ -210,5 +210,3 @@ __marimo__/
 *.duckdb
 *.duckdb.wal
 
-# CSV generados por el Data Warehouse
-dw/*.csv
