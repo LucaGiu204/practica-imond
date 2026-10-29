@@ -107,9 +107,48 @@ practica-imond/
 - **Tablas de origen:** `address`, `channel`, `customer`, `nps_response`, `payment`, `product`, `product_category`, `province`, `sales_order`, `sales_order_item`, `shipment`, `store` y `web_session`.
 - **Valores faltantes:** los campos vacíos de los CSV se interpretan como `NULL` al cargar los datos.
 
-![Diagrama entidad–relación de las fuentes originales](./assets/DER.png)
 
-El [modelo estrella generado](./dw/modelo_estrella.md) muestra columnas, tipos y relaciones efectivamente declaradas en DuckDB.
+### Modelo dimensional del Data Warehouse
+
+El Data Warehouse se construyó siguiendo el enfoque dimensional
+de Kimball, con seis dimensiones y seis tablas de hechos.
+
+Como ejemplo, la siguiente representación muestra la estrella
+correspondiente a las ventas por pedido:
+
+```mermaid
+erDiagram
+    dim_date ||--o{ fact_sales_order : date_key
+    dim_customer ||--o{ fact_sales_order : customer_key
+    dim_channel ||--o{ fact_sales_order : channel_key
+    dim_province ||--o{ fact_sales_order : province_key
+    dim_store ||--o{ fact_sales_order : store_key
+```
+
+Esta representación es una vista simplificada de la estrella
+de ventas. El modelo completo incluye otras cinco tablas de
+hechos, la dimensión de productos y dimensiones compartidas.
+
+**[Ver el modelo dimensional completo generado desde DuckDB](./dw/modelo_estrella.md)**
+
+El diagrama completo se genera automáticamente mediante
+`run_sql.py`. También incluye las cinco Data Marts materializadas,
+que forman la capa de consumo analítico y no tienen claves
+foráneas declaradas.
+
+### Diagrama de las fuentes originales (RAW)
+
+El siguiente diagrama representa las tablas transaccionales
+originales, antes de su transformación al modelo dimensional.
+No debe confundirse con el modelo estrella del Data Warehouse.
+
+<details>
+<summary>Ver diagrama entidad-relación del origen RAW</summary>
+
+![DER de las fuentes originales](./assets/DER.png)
+
+</details>
+
 
 ## 3. Diccionario de datos
 
