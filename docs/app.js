@@ -53,7 +53,7 @@
       console.error(err);
       const overlay=$('status-overlay');overlay.querySelector('.status-box').classList.add('error');
       $('status-title').textContent='Faltan los datos publicados';
-      $('status-message').textContent=`${err.message} Ejecutá primero python run_sql.py, luego python export_dashboard.py, y subí docs/data/ al repositorio.`;
+      $('status-message').textContent=`${err.message} Ejecutá python run_sql.py y subí los JSON generados en docs/data/ al repositorio.`;
     }
   }
   function addOptions(id, values){
