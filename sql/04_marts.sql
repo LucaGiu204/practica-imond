@@ -1,9 +1,8 @@
 -- =====================================================
--- 04_marts.sql - Data Marts para Power BI
+-- 04_marts.sql - Data Marts para el dashboard
 -- =====================================================
--- Materializacion de indicadores calculados desde el DW.
--- Los Data Marts consumen las dimensiones y hechos,
--- sin consultar directamente los archivos RAW.
+-- Todas las Data Marts se construyen desde el DW.
+-- Ninguna consulta directamente los datos RAW.
 
 
 -- MART 1: Ventas
@@ -96,3 +95,26 @@ SELECT
 FROM fact_web_session AS s
 INNER JOIN dim_date AS d
     ON s.date_key = d.date_key;
+
+-- MART 5: Detalles de productos
+
+CREATE TABLE mart_detalle_productos AS
+SELECT
+    i.order_item_id,
+    i.order_id,
+    d.full_date AS fecha,
+    d.year_month AS mes,
+    c.name AS canal,
+    COALESCE(prov.name, 'Sin provincia') AS provincia,
+    p.name AS producto,
+    i.quantity AS unidades,
+    i.line_total AS ventas_producto
+FROM fact_sales_order_item AS i
+INNER JOIN dim_date AS d ON d.date_key = i.date_key
+INNER JOIN dim_channel AS c ON c.channel_key = i.channel_key
+LEFT JOIN dim_province AS prov ON prov.province_key = i.province_key
+INNER JOIN dim_product AS p ON p.product_key = i.product_key
+WHERE i.status IN ('PAID', 'FULFILLED');
+
+
+
