@@ -175,6 +175,18 @@ erDiagram
         INTEGER unidades
         DECIMAL ventas_producto
     }
+    mart_kpi_nps {
+        VARCHAR periodo
+        VARCHAR canal
+        BIGINT respuestas
+        BIGINT promotores
+        BIGINT pasivos
+        BIGINT detractores
+        DOUBLE nps
+        DOUBLE porcentaje_promotores
+        DOUBLE porcentaje_pasivos
+        DOUBLE porcentaje_detractores
+    }
     mart_kpi_ventas {
         VARCHAR periodo
         VARCHAR canal

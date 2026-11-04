@@ -83,3 +83,99 @@ GROUP BY
     CUBE(canal, provincia);
 
 
+-- KPI: NPS y distribución de respuestas
+
+CREATE TABLE mart_kpi_nps AS
+
+WITH periodos AS (
+    -- Período completo
+    SELECT
+        'Todo' AS periodo,
+        canal,
+        categoria_nps
+    FROM mart_nps
+
+    UNION ALL
+
+    -- Por año
+    SELECT
+        LEFT(mes, 4) AS periodo,
+        canal,
+        categoria_nps
+    FROM mart_nps
+
+    UNION ALL
+
+    -- Por mes
+    SELECT
+        mes AS periodo,
+        canal,
+        categoria_nps
+    FROM mart_nps
+)
+
+SELECT
+    periodo,
+
+    CASE
+        WHEN GROUPING(canal) = 1 THEN 'Todos'
+        ELSE canal
+    END AS canal,
+
+    COUNT(*) AS respuestas,
+
+    COUNT(*) FILTER (
+        WHERE categoria_nps = 'Promotores'
+    ) AS promotores,
+
+    COUNT(*) FILTER (
+        WHERE categoria_nps = 'Pasivos'
+    ) AS pasivos,
+
+    COUNT(*) FILTER (
+        WHERE categoria_nps = 'Detractores'
+    ) AS detractores,
+
+    -- NPS
+    ROUND(
+        (
+            COUNT(*) FILTER (
+                WHERE categoria_nps = 'Promotores'
+            )
+            -
+            COUNT(*) FILTER (
+                WHERE categoria_nps = 'Detractores'
+            )
+        ) * 100.0 / NULLIF(COUNT(*), 0),
+        4
+    ) AS nps,
+
+    -- Porcentajes para el gráfico de satisfacción
+    ROUND(
+        COUNT(*) FILTER (
+            WHERE categoria_nps = 'Promotores'
+        ) * 100.0 / NULLIF(COUNT(*), 0),
+        4
+    ) AS porcentaje_promotores,
+
+    ROUND(
+        COUNT(*) FILTER (
+            WHERE categoria_nps = 'Pasivos'
+        ) * 100.0 / NULLIF(COUNT(*), 0),
+        4
+    ) AS porcentaje_pasivos,
+
+    ROUND(
+        COUNT(*) FILTER (
+            WHERE categoria_nps = 'Detractores'
+        ) * 100.0 / NULLIF(COUNT(*), 0),
+        4
+    ) AS porcentaje_detractores
+
+FROM periodos
+
+GROUP BY
+    periodo,
+    CUBE(canal);
+
+
