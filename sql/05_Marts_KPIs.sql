@@ -221,3 +221,56 @@ FROM periodos
 
 GROUP BY periodo
 ORDER BY periodo;
+
+
+-- KPI 4: Ranking mensual de productos
+
+CREATE TABLE mart_kpi_ranking AS
+
+WITH ventas_agrupadas AS (
+    SELECT
+        mes,
+
+        CASE
+            WHEN GROUPING(canal) = 1 THEN 'Todos'
+            ELSE canal
+        END AS canal,
+
+        CASE
+            WHEN GROUPING(provincia) = 1 THEN 'Todas'
+            ELSE provincia
+        END AS provincia,
+
+        producto,
+
+        SUM(unidades) AS unidades_vendidas,
+        SUM(ventas_producto) AS ventas_producto
+
+    FROM mart_detalle_productos
+
+    GROUP BY
+        mes,
+        producto,
+        CUBE(canal, provincia)
+)
+
+SELECT
+    mes,
+    canal,
+    provincia,
+    producto,
+    unidades_vendidas,
+    ventas_producto,
+
+    RANK() OVER ( -- RANK ordena y posiciona respetando empates
+        PARTITION BY mes, canal, provincia -- PARTITION BY permite que haya un ranking por cada mes
+        ORDER BY ventas_producto DESC
+    ) AS ranking
+
+FROM ventas_agrupadas
+
+ORDER BY
+    mes,
+    canal,
+    provincia,
+    ranking;
