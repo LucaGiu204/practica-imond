@@ -48,8 +48,12 @@
         <section class="filters-panel" aria-label="Filtros del tablero">
           <div class="filter-header"><div><h2>Explorá tus resultados</h2><p>Los indicadores cambian según los filtros compatibles con cada fuente.</p></div><button id="clear-filters" class="ghost-button" type="button">↺ Restablecer filtros</button></div>
           <div class="filters-grid">
-            <label class="field">Desde <input type="date" id="date-from" aria-label="Fecha inicial"></label>
-            <label class="field">Hasta <input type="date" id="date-to" aria-label="Fecha final"></label>
+            <label class="field">
+              Período
+              <select id="period-filter" aria-label="Período de análisis">
+                <option value="Todo">Todo el período</option>
+              </select>
+            </label>
             <label class="field">Canal <select id="channel-filter"><option value="">Todos los canales</option></select></label>
             <label class="field">Provincia <select id="province-filter"><option value="">Todas las provincias</option></select></label>
             <label class="field">Producto <select id="product-filter"><option value="">Todos los productos</option></select></label>
@@ -86,7 +90,7 @@
 
         <section class="section" id="productos" aria-labelledby="productos-title">
           <div class="section-heading"><div><div class="section-overline">04 / PRODUCTOS</div><h2 id="productos-title">Qué eligen nuestros clientes</h2></div><span class="section-hint">Importes de líneas sin IVA ni envío</span></div>
-          <article class="panel products-panel"><div class="panel-head"><div><h3>Ranking de productos</h3><p>Ordenado por facturación de líneas, neta de descuentos</p></div><label class="month-select">Mes del ranking <select id="ranking-month" aria-label="Mes del ranking de productos"></select></label></div><div class="product-list" id="product-ranking"></div><p class="panel-footnote">El ranking considera las fechas, canal y provincia seleccionados; se calcula sobre el detalle de productos preparado en SQL.</p></article>
+          <article class="panel products-panel"><div class="panel-head"><div><h3>Ranking de productos</h3><p>Ordenado por facturación de líneas, neta de descuentos</p></div><label class="month-select">Mes del ranking <select id="ranking-month" aria-label="Mes del ranking de productos"></select></label></div><div class="product-list" id="product-ranking"></div><p class="panel-footnote">Ranking mensual calculado en SQL, según canal y provincia.  El filtro de producto limita los resultados visibles sin modificar las posiciones originales.</p></article>
         </section>
 
         <section class="architecture-section" id="arquitectura" aria-labelledby="arquitectura-title">

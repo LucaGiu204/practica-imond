@@ -1,7 +1,7 @@
 /* EcoBottle AR — Dashboard estático.
- * SOLO consume CSV exportados desde Data Marts (docs/data/).
- * No lee CSV originales ni fuentes transaccionales.
- * Agregaciones de presentación permiten filtros interactivos sin backend.
+ * Consume exclusivamente KPIs precalculados en SQL.
+ * JavaScript selecciona datos y genera visualizaciones.
+ * No calcula indicadores de negocio.
  */
 (() => {
   'use strict';
@@ -19,32 +19,58 @@
     return new Intl.DateTimeFormat('es-AR',{month:'short', year:'2-digit'}).format(new Date(y,m-1,1)).replace('.','');
   };
   const esc = (x) => String(x ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const state = {ventas:[],nps:[],actividad:[],productos:[],ranking:[],tax:'with'};
-  const f = {from:'',to:'',channel:'',province:'',product:'',month:''};
+  
+  // Datos finales calculados previamente en DuckDB.
+  const state = {
+    ventas: [],
+    nps: [],
+    usuarios: [],
+    ranking: [],
+    tax: 'with'
+  };
+
+  // Filtros del dashboard.
+  const f = {
+    period: 'Todo',
+    channel: '',
+    province: '',
+    product: '',
+    month: ''
+  };
+
   const PATH = './data/';
+
+  // Columnas que necesitamos de cada Mart.
   const sources = [
-    ["mart_ventas.csv", [
-      "order_id", "fecha", "mes", "canal", "provincia",
-      "ventas_con_iva", "ventas_sin_iva"
+    ["mart_kpi_ventas.csv", [
+      "periodo", "canal", "provincia", "producto",
+      "pedidos", "ventas_con_iva", "ventas_sin_iva",
+      "ticket_con_iva", "ticket_sin_iva"
     ]],
-    ["mart_nps.csv", [
-      "fecha", "mes", "canal", "aporte_nps", "categoria_nps"
+
+    ["mart_kpi_nps.csv", [
+      "periodo", "canal", "respuestas",
+      "promotores", "pasivos", "detractores",
+      "nps", "porcentaje_promotores",
+      "porcentaje_pasivos", "porcentaje_detractores"
     ]],
-    ["mart_actividad_web.csv", [
-      "fecha", "mes", "usuario_analitico_id", "source", "device"
+
+    ["mart_kpi_usuarios.csv", [
+      "periodo", "usuarios_activos"
     ]],
-    ["mart_detalle_productos.csv", [
-      "order_id", "fecha", "mes", "canal", "provincia",
-      "producto", "unidades", "ventas_producto"
-    ]],
-    ["mart_ranking_productos.csv", [
-      "mes", "producto", "unidades_vendidas",
-      "ventas_producto", "ranking"
+
+    ["mart_kpi_ranking.csv", [
+      "mes", "canal", "provincia", "producto",
+      "unidades_vendidas", "ventas_producto", "ranking"
     ]]
   ];
-  const keyFrom = (d)=>d.slice(0,7);
-  const isInDates = (day)=> (!f.from||day>=f.from) && (!f.to||day<=f.to);
-  const taxCol = ()=> state.tax==='with'?5:6;
+
+  // Determina si un mes pertenece al período elegido.
+  const monthInPeriod = (month) =>
+    f.period === 'Todo' ||
+    (f.period.length === 4 && month.startsWith(f.period + '-')) ||
+    month === f.period;
+
 
   function readCSV(text, columns) {
     const rows = [];
@@ -108,118 +134,412 @@
     );
   }
 
-  async function load(){
-    try{
-      const response = await Promise.all(
+  
+  async function load() {
+    try {
+      // 1. Descargar los CSV de las cuatro Mart de KPIs.
+      const responses = await Promise.all(
         sources.map(([file]) =>
-          fetch(PATH + file, { cache: "no-cache" })
+          fetch(PATH + file, { cache: 'no-cache' })
         )
       );
 
-      for (let i = 0; i < response.length; i++) {
-        if (!response[i].ok) {
+      // Comprobar que todos los archivos estén disponibles.
+      for (let i = 0; i < responses.length; i++) {
+        if (!responses[i].ok) {
           throw new Error(
-            `No se pudo abrir ${sources[i][0]} (HTTP ${response[i].status})`
+            `No se pudo cargar ${sources[i][0]} (HTTP ${responses[i].status})`
           );
         }
       }
 
+      // 2. Leer y convertir los CSV a arreglos.
       const content = await Promise.all(
-        response.map(r => r.text())
+        responses.map(response => response.text())
       );
 
       [
         state.ventas,
         state.nps,
-        state.actividad,
-        state.productos,
+        state.usuarios,
         state.ranking
       ] = content.map((text, i) =>
         readCSV(text, sources[i][1])
       );
-      const allDates=state.ventas.map(v=>v[1]).filter(Boolean).sort();
-      if(!allDates.length)throw new Error('La Mart de ventas no contiene registros. Revisá la exportación SQL.');
-      f.from=allDates[0];f.to=allDates[allDates.length-1];
-      $('date-from').min=f.from;$('date-from').max=f.to;$('date-from').value=f.from;
-      $('date-to').min=f.from;$('date-to').max=f.to;$('date-to').value=f.to;
-      addOptions('channel-filter',new Set(state.ventas.map(v=>v[3])));
-      addOptions('province-filter',new Set(state.ventas.map(v=>v[4])));
-      addOptions('product-filter',new Set(state.productos.map(v=>v[5])));
-      const months=monthsSorted(state.ventas.map(v=>v[2]));
-      $('ranking-month').innerHTML=months.map(m=>`<option value="${esc(m)}">${esc(monthLabel(m))}</option>`).join('');
-      f.month=months[months.length-1];$('ranking-month').value=f.month;
-      const label=$('data-source-label');
-      label.textContent=`Fuente: ${numeric(state.ventas.length)} pedidos · Datos del DW`;
+
+      if (!state.ventas.length) {
+        throw new Error('La Mart de ventas está vacía.');
+      }
+
+      // 3. Preparar el selector de períodos.
+      const periodos = new Set(
+        state.ventas.map(row => row[0])
+      );
+
+      const años = [...periodos]
+        .filter(p => /^\d{4}$/.test(p))
+        .sort();
+
+      const meses = [...periodos]
+        .filter(p => /^\d{4}-\d{2}$/.test(p))
+        .sort();
+
+      const periodSelect = $('period-filter');
+
+      for (const año of años) {
+        periodSelect.add(new Option(`Año ${año}`, año));
+
+        for (const mes of meses) {
+          if (mes.startsWith(año + '-')) {
+            periodSelect.add(
+              new Option(monthLabel(mes), mes)
+            );
+          }
+        }
+      }
+
+      f.period = 'Todo';
+      periodSelect.value = f.period;
+
+      // 4. Preparar los filtros de canal, provincia y producto.
+      addOptions(
+        'channel-filter',
+        new Set(
+          state.ventas
+            .map(row => row[1])
+            .filter(value => value !== 'Todos')
+        )
+      );
+
+      addOptions(
+        'province-filter',
+        new Set(
+          state.ventas
+            .map(row => row[2])
+            .filter(value => value !== 'Todas')
+        )
+      );
+
+      addOptions(
+        'product-filter',
+        new Set(
+          state.ventas
+            .map(row => row[3])
+            .filter(value => value !== 'Todos')
+        )
+      );
+
+      // 5. Preparar el selector del ranking mensual.
+      const mesesRanking = monthsSorted(
+        state.ranking.map(row => row[0])
+      );
+
+      $('ranking-month').innerHTML = mesesRanking
+        .map(mes =>
+          `<option value="${esc(mes)}">${esc(monthLabel(mes))}</option>`
+        )
+        .join('');
+
+      f.month = mesesRanking[mesesRanking.length - 1] || '';
+      $('ranking-month').value = f.month;
+
+      // 6. Mostrar la fuente de los datos.
+      $('data-source-label').textContent =
+        'Fuente: KPIs precalculados en SQL · DuckDB';
+
+      // 7. Inicializar el dashboard.
       setupEvents();
       render();
+
       $('status-overlay').classList.add('hidden');
-    }catch(err){
+
+    } catch (err) {
       console.error(err);
-      const overlay=$('status-overlay');overlay.querySelector('.status-box').classList.add('error');
-      $('status-title').textContent='Faltan los datos publicados';
-      $('status-message').textContent=`${err.message} Ejecutá python run_sql.py y subí los CSV generados en docs/data/ al repositorio.`;
+
+      const overlay = $('status-overlay');
+      overlay.querySelector('.status-box').classList.add('error');
+
+      $('status-title').textContent =
+        'No se pudieron cargar los datos';
+
+      $('status-message').textContent =
+        `${err.message} Revisá los CSV publicados en docs/data/.`;
     }
   }
+
   function addOptions(id, values){
     const el=$(id); [...values].filter(v=>v!==null&&v!==undefined&&String(v).trim()).sort((a,b)=>String(a).localeCompare(String(b),'es'))
       .forEach(v=>{const opt=document.createElement('option');opt.value=v;opt.textContent=v;el.appendChild(opt);});
   }
-  function setupEvents(){
-    [['date-from','from'],['date-to','to'],['channel-filter','channel'],['province-filter','province'],['product-filter','product']].forEach(([id,key])=>{
-      $(id).addEventListener('change',e=>{f[key]=e.target.value;render();});
-    });
-    $('ranking-month').addEventListener('change',e=>{f.month=e.target.value;render();});
-    $('clear-filters').addEventListener('click',()=>{
-      f.from=$('date-from').min;f.to=$('date-to').max;f.channel='';f.province='';f.product='';
-      for(const [id,value] of [['date-from',f.from],['date-to',f.to],['channel-filter',''],['province-filter',''],['product-filter','']])$(id).value=value;
+  
+  function setupEvents() {
+
+    // Detectar cambios en los filtros.
+    const filtros = [
+      ['period-filter', 'period'],
+      ['channel-filter', 'channel'],
+      ['province-filter', 'province'],
+      ['product-filter', 'product']
+    ];
+
+    for (const [id, key] of filtros) {
+      $(id).addEventListener('change', (event) => {
+        f[key] = event.target.value;
+        render();
+      });
+    }
+
+    // Selector del mes para el ranking.
+    $('ranking-month').addEventListener('change', (event) => {
+      f.month = event.target.value;
       render();
     });
-    function tax(to){state.tax=to;for(const [id,val] of [['tax-with','with'],['tax-without','without']]){
-      $(id).classList.toggle('selected',val===to);$(id).setAttribute('aria-pressed',String(val===to));
-    }render();}
-    $('tax-with').addEventListener('click',()=>tax('with'));$('tax-without').addEventListener('click',()=>tax('without'));
-    window.addEventListener('resize',()=>{clearTimeout(window.__resizeChart);window.__resizeChart=setTimeout(render,150);});
-    for(const link of document.querySelectorAll('.nav-link'))link.addEventListener('click',()=>{
-      document.querySelectorAll('.nav-link').forEach(a=>a.classList.remove('active'));link.classList.add('active');
-    });
-  }
-  function currentData(){
-    const prodFilter = (r) => isInDates(r[1]) && (!f.channel||r[3]===f.channel) && (!f.province||r[4]===f.province);
-    const productOrders=f.product?new Set(state.productos.filter(r=>prodFilter(r) && r[5]===f.product).map(r=>String(r[0]))):null;
-    const ventas=state.ventas.filter(r=>isInDates(r[1]) && (!f.channel||r[3]===f.channel) && (!f.province||r[4]===f.province) && (!productOrders||productOrders.has(String(r[0]))));
-    const nps=state.nps.filter(r=>isInDates(r[0]) && (!f.channel||r[2]===f.channel));
-    const actividad=state.actividad.filter(r=>isInDates(r[0]));
-    const productos=state.productos.filter(r=>prodFilter(r));
-    return {ventas,nps,actividad,productos};
-  }
-  function render(){
-    const {ventas,nps,actividad,productos}=currentData();
-    const total=ventas.reduce((acc,v)=>acc+Number(v[taxCol()]),0);
-    const users=new Set(actividad.map(v=>v[2])).size;
-    const npsValue=nps.length?nps.reduce((acc,v)=>acc+Number(v[3]),0)/nps.length:null;
-    $('kpi-sales').textContent=short(total,true);
-    $('kpi-users').textContent=short(users);
-    $('kpi-ticket').textContent=ventas.length?short(total/ventas.length,true):'—';
-    $('kpi-nps').textContent=npsValue===null?'—':`${npsValue>0?'+':''}${oneDecimal(npsValue)}`;
-    $('kpi-sales-detail').textContent=`${numeric(ventas.length)} pedidos válidos · ${state.tax==='with'?'IVA incluido':'IVA excluido'}`;
-    $('kpi-ticket-detail').textContent=`Por pedido · ${state.tax==='with'?'IVA incluido':'IVA excluido'}`;
-    $('kpi-nps-detail').textContent=`${numeric(nps.length)} respuestas · Solo fecha y canal`;
-    const productText=f.product?`Pedidos con ${f.product}`:'Todos los productos';
-    $('filter-summary').textContent=`${numeric(ventas.length)} pedidos · ${productText}`;
-    $('filter-compat').textContent=(f.province||f.product)?'Provincia/producto no se aplican a NPS ni a actividad web.':'NPS admite fecha y canal; actividad web solo fecha.';
 
-    const salesByMonth=new Map();
-    for(const r of ventas){const m=r[2];salesByMonth.set(m,(salesByMonth.get(m)||0)+Number(r[taxCol()]));}
-    drawLine('sales-chart', [...salesByMonth].sort(([a],[b])=>a.localeCompare(b)), (v)=>short(v,true), {zero:true, type:'money'});
-    const byProvince=new Map();for(const r of ventas){byProvince.set(r[4],(byProvince.get(r[4])||0)+Number(r[taxCol()]));}
-    drawBars(byProvince);
-    const webByMonth=new Map();for(const r of actividad){const key=r[1];if(!webByMonth.has(key))webByMonth.set(key,new Set());webByMonth.get(key).add(r[2]);}
-    drawLine('users-chart',[...webByMonth].sort(([a],[b])=>a.localeCompare(b)).map(([m,set])=>[m,set.size]),v=>short(v),{zero:true});
-    const npsByMonth=new Map();for(const r of nps){const m=r[1];if(!npsByMonth.has(m))npsByMonth.set(m,[0,0]);const v=npsByMonth.get(m);v[0]+=Number(r[3]);v[1]++;}
-    drawLine('nps-chart',[...npsByMonth].sort(([a],[b])=>a.localeCompare(b)).map(([m,[sum,count]])=>[m,sum/count]),v=>oneDecimal(v),{nps:true});
-    drawDonut(nps);
-    drawProducts(productos);
+    // Restablecer filtros.
+    $('clear-filters').addEventListener('click', () => {
+      f.period = 'Todo';
+      f.channel = '';
+      f.province = '';
+      f.product = '';
+      f.month = '';
+
+      for (const [id, value] of [
+        ['period-filter', 'Todo'],
+        ['channel-filter', ''],
+        ['province-filter', ''],
+        ['product-filter', '']
+      ]) {
+        $(id).value = value;
+      }
+
+      render();
+    });
+
+    // Activar o desactivar IVA.
+    function tax(value) {
+      state.tax = value;
+
+      for (const [id, val] of [
+        ['tax-with', 'with'],
+        ['tax-without', 'without']
+      ]) {
+        $(id).classList.toggle('selected', val === value);
+        $(id).setAttribute(
+          'aria-pressed',
+          String(val === value)
+        );
+      }
+
+      render();
+    }
+
+    $('tax-with').addEventListener('click', () => tax('with'));
+    $('tax-without').addEventListener('click', () => tax('without'));
+
+    // Redibujar los gráficos cuando cambia el tamaño.
+    window.addEventListener('resize', () => {
+      clearTimeout(window.__resizeChart);
+      window.__resizeChart = setTimeout(render, 150);
+    });
+
+    // Navegación lateral.
+    for (const link of document.querySelectorAll('.nav-link')) {
+      link.addEventListener('click', () => {
+        document.querySelectorAll('.nav-link').forEach(
+          a => a.classList.remove('active')
+        );
+        link.classList.add('active');
+      });
+    }
   }
+
+  
+  function currentData() {
+
+    // Valores que identifican los totales creados con CUBE.
+    const canal = f.channel || 'Todos';
+    const provincia = f.province || 'Todas';
+    const producto = f.product || 'Todos';
+
+    // Seleccionar la fila exacta del KPI de ventas.
+    const ventas = state.ventas.find(row =>
+      row[0] === f.period &&
+      row[1] === canal &&
+      row[2] === provincia &&
+      row[3] === producto
+    );
+
+    // NPS: solamente período y canal.
+    const nps = state.nps.find(row =>
+      row[0] === f.period &&
+      row[1] === canal
+    );
+
+    // Usuarios: solamente período.
+    const usuarios = state.usuarios.find(row =>
+      row[0] === f.period
+    );
+
+    // Datos mensuales ya calculados para los gráficos.
+    const esMes = periodo => /^\d{4}-\d{2}$/.test(periodo);
+
+    const ventasMensuales = state.ventas.filter(row =>
+      esMes(row[0]) &&
+      monthInPeriod(row[0]) &&
+      row[1] === canal &&
+      row[2] === provincia &&
+      row[3] === producto
+    ).sort((a, b) => a[0].localeCompare(b[0]));
+
+    const npsMensual = state.nps.filter(row =>
+      esMes(row[0]) &&
+      monthInPeriod(row[0]) &&
+      row[1] === canal
+    ).sort((a, b) => a[0].localeCompare(b[0]));
+
+    const usuariosMensuales = state.usuarios.filter(row =>
+      esMes(row[0]) &&
+      monthInPeriod(row[0])
+    ).sort((a, b) => a[0].localeCompare(b[0]));
+
+    // Ventas provinciales ya agregadas en SQL.
+    const ventasProvincias = state.ventas.filter(row =>
+      row[0] === f.period &&
+      row[1] === canal &&
+      row[2] !== 'Todas' &&
+      row[3] === producto
+    );
+
+    // Ranking ya calculado por mes, canal y provincia.
+    const ranking = state.ranking.filter(row =>
+      monthInPeriod(row[0]) &&
+      row[1] === canal &&
+      row[2] === provincia
+    );
+
+    return {
+      ventas,
+      nps,
+      usuarios,
+      ventasMensuales,
+      npsMensual,
+      usuariosMensuales,
+      ventasProvincias,
+      ranking
+    };
+  }
+
+  
+  function render() {
+
+    const {
+      ventas,
+      nps,
+      usuarios,
+      ventasMensuales,
+      npsMensual,
+      usuariosMensuales,
+      ventasProvincias,
+      ranking
+    } = currentData();
+
+    // Columnas con y sin IVA calculadas en SQL.
+    const columnaVentas = state.tax === 'with' ? 5 : 6;
+    const columnaTicket = state.tax === 'with' ? 7 : 8;
+
+    const pedidos = ventas ? Number(ventas[4]) : 0;
+
+    // KPIs principales: leer directamente sus valores.
+    $('kpi-sales').textContent = ventas
+      ? short(Number(ventas[columnaVentas]), true)
+      : '—';
+
+    $('kpi-ticket').textContent = ventas
+      ? short(Number(ventas[columnaTicket]), true)
+      : '—';
+
+    $('kpi-users').textContent = usuarios
+      ? short(Number(usuarios[1]))
+      : '—';
+
+    const valorNps = nps ? Number(nps[6]) : null;
+
+    $('kpi-nps').textContent = valorNps === null
+      ? '—'
+      : `${valorNps > 0 ? '+' : ''}${oneDecimal(valorNps)}`;
+
+    // Descripciones de los indicadores.
+    const iva = state.tax === 'with'
+      ? 'IVA incluido'
+      : 'IVA excluido';
+
+    $('kpi-sales-detail').textContent =
+      `${numeric(pedidos)} pedidos válidos · ${iva}`;
+
+    $('kpi-ticket-detail').textContent =
+      `Por pedido · ${iva}`;
+
+    $('kpi-nps-detail').textContent =
+      `${numeric(nps ? Number(nps[2]) : 0)} respuestas · Período y canal`;
+
+    const productoTexto = f.product
+      ? `Pedidos con ${f.product}`
+      : 'Todos los productos';
+
+    $('filter-summary').textContent =
+      `${numeric(pedidos)} pedidos · ${productoTexto}`;
+
+    $('filter-compat').textContent =
+      'NPS: período y canal · Usuarios: solo período';
+
+    // Gráfico de ventas mensuales.
+    drawLine(
+      'sales-chart',
+      ventasMensuales.map(row => [
+        row[0],
+        Number(row[columnaVentas])
+      ]),
+      value => short(value, true),
+      { zero: true }
+    );
+
+    // Gráfico de ventas por provincia.
+    const porProvincia = new Map(
+      ventasProvincias.map(row => [
+        row[2],
+        Number(row[columnaVentas])
+      ])
+    );
+
+    drawBars(porProvincia);
+
+    // Gráfico de usuarios activos mensuales.
+    drawLine(
+      'users-chart',
+      usuariosMensuales.map(row => [
+        row[0],
+        Number(row[1])
+      ]),
+      value => short(value),
+      { zero: true }
+    );
+
+    // Tendencia mensual de NPS.
+    drawLine(
+      'nps-chart',
+      npsMensual.map(row => [
+        row[0],
+        Number(row[6])
+      ]),
+      value => oneDecimal(value),
+      { nps: true }
+    );
+
+    // Distribución NPS y ranking de productos.
+    drawDonut(nps);
+    drawProducts(ranking);
+  }
+
   function drawLine(id,values,formatter,options={}){
     const root=$(id);
     if(!values.length){root.innerHTML='<div class="empty-state">No hay datos para estos filtros.</div>';return;}
@@ -250,38 +570,138 @@
     const max=Math.max(...rows.map(r=>r[1]),1);
     el.innerHTML=rows.map(([name,value])=>`<div class="bar-row"><div class="bar-label"><span>${esc(name)}</span><strong>${esc(short(value,true))}</strong></div><div class="bar-track"><div class="bar-fill" style="width:${Math.max(0,value/max*100).toFixed(2)}%"></div></div></div>`).join('');
   }
-  function drawDonut(rows){
-    const groups=[['Promotores','#159777'],['Pasivos','#b5cfc1'],['Detractores','#edbc87']];
-    const counts=new Map(groups.map(([g])=>[g,0]));rows.forEach(r=>counts.set(r[4],(counts.get(r[4])||0)+1));
-    const total=rows.length;$('nps-total').textContent=numeric(total);
-    let start=0;const parts=[];
-    for(const [category,color] of groups){const frac=total?(counts.get(category)||0)*100/total:0;parts.push(`${color} ${start.toFixed(3)}% ${(start+frac).toFixed(3)}%`);start+=frac;}
-    $('nps-donut').style.background=total?`conic-gradient(${parts.join(',')})`:'#e9efeb';
-    $('nps-legend').innerHTML=groups.map(([category,color])=>{
-      const c=counts.get(category)||0;return `<div class="legend-row"><i class="legend-dot" style="background:${color}"></i>${category}<span>${total?oneDecimal(c/total*100):'0'}%</span></div>`;
-    }).join('');
-  }
-  function drawProducts(all){
-    const months=monthsSorted(all.map(r=>r[2]));
-    const current=$('ranking-month');const allMonths=Array.from(current.options).map(o=>o.value);
-    for(const opt of current.options)opt.disabled=!months.includes(opt.value);
-    if(!months.includes(f.month)&&months.length){f.month=months[months.length-1];current.value=f.month;}
-    const monthRows=all.filter(r=>r[2]===f.month),agg=new Map();
-    for(const r of monthRows){const key=r[5];if(!agg.has(key))agg.set(key,{units:0,sales:0});const v=agg.get(key);v.units+=Number(r[6]);v.sales+=Number(r[7]);}
-    let ranked=[...agg].sort((a,b)=>b[1].sales-a[1].sales);
-    if(!ranked.length){$('product-ranking').innerHTML='<div class="empty-state">No hay productos en este período.</div>';return;}
-    const max=Math.max(...ranked.map(r=>r[1].sales),1);
-    let lastSale=null,lastRank=0;
-    const baseline = (!f.channel && !f.province && !f.product && f.from === $('date-from').min && f.to === $('date-to').max)
-      ? new Map(state.ranking.filter(r => r[0]===f.month).map(r => [r[1], Number(r[4])]))
-      : null;
-    $('product-ranking').innerHTML=ranked.map(([name,val],i)=>{
-      const rank=(lastSale===null||Math.abs(val.sales-lastSale)>0.0001)?i+1:lastRank;
-      lastRank=rank;lastSale=val.sales;
-      return {name,val,rank:baseline?.get(name) ?? rank};
-    }).filter(row=>!f.product || row.name===f.product).map(({name,val,rank})=>
-      `<div class="product-row"><div class="rank-badge">${rank}</div><div><div class="product-name">${esc(name)}</div><div class="product-units">${numeric(val.units)} unidades · ${esc(monthLabel(f.month))}</div><div class="product-progress"><div style="width:${Math.max(0,val.sales/max*100).toFixed(2)}%"></div></div></div><div class="product-money">${esc(money(val.sales))}</div></div>`
+  
+  function drawDonut(row) {
+
+    const grupos = [
+      ['Promotores', '#159777', 7],
+      ['Pasivos', '#b5cfc1', 8],
+      ['Detractores', '#edbc87', 9]
+    ];
+
+    const total = row ? Number(row[2]) : 0;
+
+    $('nps-total').textContent = numeric(total);
+
+    let inicio = 0;
+    const segmentos = [];
+
+    for (let i = 0; i < grupos.length; i++) {
+      const [categoria, color, columna] = grupos[i];
+
+      // Porcentaje calculado previamente en SQL.
+      const porcentaje = row ? Number(row[columna]) : 0;
+
+      // Solamente calculamos dónde dibujar el segmento.
+      const fin = i === grupos.length - 1
+        ? 100
+        : inicio + porcentaje;
+
+      segmentos.push(
+        `${color} ${inicio.toFixed(3)}% ${fin.toFixed(3)}%`
+      );
+
+      inicio = fin;
+    }
+
+    $('nps-donut').style.background = total
+      ? `conic-gradient(${segmentos.join(',')})`
+      : '#e9efeb';
+
+    $('nps-legend').innerHTML = grupos.map(
+      ([categoria, color, columna]) => {
+
+        const porcentaje = row
+          ? Number(row[columna])
+          : 0;
+
+        return `
+          <div class="legend-row">
+            <i class="legend-dot" style="background:${color}"></i>
+            ${esc(categoria)}
+            <span>${oneDecimal(porcentaje)}%</span>
+          </div>
+        `;
+      }
     ).join('');
   }
+
+  
+  function drawProducts(all) {
+
+    // Meses disponibles según el período, canal y provincia.
+    const meses = monthsSorted(
+      all.map(row => row[0])
+    );
+
+    const selector = $('ranking-month');
+
+    // Deshabilitar meses sin resultados.
+    for (const option of selector.options) {
+      option.disabled = !meses.includes(option.value);
+    }
+
+    // Elegir el último mes válido cuando corresponda.
+    if (!meses.includes(f.month)) {
+      f.month = meses[meses.length - 1] || '';
+      selector.value = f.month;
+    }
+
+    // Seleccionar el ranking mensual ya calculado.
+    const ranked = all
+      .filter(row => row[0] === f.month)
+      .sort((a, b) => Number(a[6]) - Number(b[6]));
+
+    // Escala visual de las barras.
+    const max = Math.max(
+      1,
+      ...ranked.map(row => Number(row[5]))
+    );
+
+    // El producto seleccionado se muestra conservando
+    // su puesto original en el ranking del segmento.
+    const visibles = f.product
+      ? ranked.filter(row => row[3] === f.product)
+      : ranked;
+
+    if (!visibles.length) {
+      $('product-ranking').innerHTML =
+        '<div class="empty-state">No hay productos para estos filtros.</div>';
+      return;
+    }
+
+    $('product-ranking').innerHTML = visibles.map(row => {
+
+      const producto = row[3];
+      const unidades = Number(row[4]);
+      const ventas = Number(row[5]);
+      const puesto = Number(row[6]);
+
+      // Solamente se calcula el ancho visual de la barra.
+      const ancho = Math.max(0, ventas / max * 100);
+
+      return `
+        <div class="product-row">
+          <div class="rank-badge">${puesto}</div>
+
+          <div>
+            <div class="product-name">${esc(producto)}</div>
+            <div class="product-units">
+              ${numeric(unidades)} unidades · ${esc(monthLabel(f.month))}
+            </div>
+
+            <div class="product-progress">
+              <div style="width:${ancho.toFixed(2)}%"></div>
+            </div>
+          </div>
+
+          <div class="product-money">
+            ${esc(money(ventas))}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
   load();
 })();
