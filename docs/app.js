@@ -403,12 +403,15 @@
     ).sort((a, b) => a[0].localeCompare(b[0]));
 
     // Ventas provinciales ya agregadas en SQL.
+    
     const ventasProvincias = state.ventas.filter(row =>
       row[0] === f.period &&
       row[1] === canal &&
       row[2] !== 'Todas' &&
+      (!f.province || row[2] === f.province) &&
       row[3] === producto
     );
+
 
     // Ranking ya calculado por mes, canal y provincia.
     const ranking = state.ranking.filter(row =>
