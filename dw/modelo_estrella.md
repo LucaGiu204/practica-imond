@@ -175,6 +175,17 @@ erDiagram
         INTEGER unidades
         DECIMAL ventas_producto
     }
+    mart_kpi_ventas {
+        VARCHAR periodo
+        VARCHAR canal
+        VARCHAR provincia
+        VARCHAR producto
+        BIGINT pedidos
+        DECIMAL ventas_con_iva
+        DECIMAL ventas_sin_iva
+        DOUBLE ticket_con_iva
+        DOUBLE ticket_sin_iva
+    }
     mart_nps {
         BIGINT nps_id
         DATE fecha
