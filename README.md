@@ -272,7 +272,7 @@ El dashboard ofrece **período** (`Todo`, año o mes), **canal**, **provincia**,
 
 ### Requisitos de desarrollo
 
-- Python 3.9 o superior, Git y una terminal.
+- Python 3.10 o superior, Git y una terminal.
 - Dependencias de `requirements.txt` (incluye DuckDB).
 - Un navegador para visualizar el dashboard.
 
