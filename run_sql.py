@@ -170,13 +170,20 @@ def build() -> duckdb.DuckDBPyConnection:
         export_tables(con, tables)
         write_diagram(con, tables)
 
-        # Publicar en GitHub Pages solo CSV de las Data Marts.
+        # Publicar en GitHub Pages las Data Marts.
         marts = [
+            # Marts originales
             "mart_ventas",
             "mart_nps",
             "mart_actividad_web",
             "mart_detalle_productos",
             "mart_ranking_productos",
+
+            # Marts de KPIs precalculados
+            "mart_kpi_ventas",
+            "mart_kpi_nps",
+            "mart_kpi_usuarios",
+            "mart_kpi_ranking",
         ]
 
         faltantes = [nombre for nombre in marts if nombre not in tables]
