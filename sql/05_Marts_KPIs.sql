@@ -1,10 +1,15 @@
+-- =====================================================================
+-- 05_Marts_KPIs.sql - Data Marts de indicadores para el dashboard
+-- =====================================================================
+-- Objetivo:
+--   Calcular los KPIs y sus combinaciones de filtros en SQL,
+--   evitando realizar cálculos de negocio en JavaScript.
 
 -- KPIs DE VENTAS PARA EL DASHBOARD
 
-
 CREATE TABLE mart_kpi_ventas AS
 
-WITH productos_pedido AS (
+WITH productos_pedido AS (  --WITH genera una tabla temporal para usar en esta única consulta
     SELECT DISTINCT
         order_id,
         producto
@@ -51,7 +56,7 @@ SELECT
     periodo,
 
     CASE
-        WHEN GROUPING(canal) = 1 THEN 'Todos'
+        WHEN GROUPING(canal) = 1 THEN 'Todos' --GROUPING devuelve un booleano 0/1 
         ELSE canal
     END AS canal,
 
@@ -80,7 +85,7 @@ FROM ventas_periodo
 GROUP BY
     periodo,
     producto,
-    CUBE(canal, provincia);
+    CUBE(canal, provincia); -- calcula todas las posibles combinaciones de agrupación
 
 
 -- KPI: NPS y distribución de respuestas
@@ -179,3 +184,40 @@ GROUP BY
     CUBE(canal);
 
 
+
+-- KPI 3: Usuarios activos
+
+CREATE TABLE mart_kpi_usuarios AS
+
+WITH periodos AS (
+    -- Período completo
+    SELECT
+        'Todo' AS periodo,
+        usuario_analitico_id
+    FROM mart_actividad_web
+
+    UNION ALL
+
+    -- Por año
+    SELECT
+        LEFT(mes, 4) AS periodo,
+        usuario_analitico_id
+    FROM mart_actividad_web
+
+    UNION ALL
+
+    -- Por mes
+    SELECT
+        mes AS periodo,
+        usuario_analitico_id
+    FROM mart_actividad_web
+)
+
+SELECT
+    periodo,
+    COUNT(DISTINCT usuario_analitico_id) AS usuarios_activos
+
+FROM periodos
+
+GROUP BY periodo
+ORDER BY periodo;

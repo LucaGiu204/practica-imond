@@ -187,6 +187,10 @@ erDiagram
         DOUBLE porcentaje_pasivos
         DOUBLE porcentaje_detractores
     }
+    mart_kpi_usuarios {
+        VARCHAR periodo
+        BIGINT usuarios_activos
+    }
     mart_kpi_ventas {
         VARCHAR periodo
         VARCHAR canal
